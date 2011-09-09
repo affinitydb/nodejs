@@ -444,7 +444,7 @@ var lTests =
     lStdTest(_lValue_VT_STRING, "'" + _lValue_VT_STRING + "'", 'VT_STRING');
 
     // VT_DOUBLE
-    var _lValues_VT_DOUBLE = [123.456, 2.2e-308, 1.7e+308, -1.5e-50/*, 0*/];
+    var _lValues_VT_DOUBLE = [123.456, 2.2e-308, 1.5e+308, -1.5e-50/*, 0*/];
     for (var _iV = 0; _iV < _lValues_VT_DOUBLE.length; _iV++)
       { lStdTest(_lValues_VT_DOUBLE[_iV], _lValues_VT_DOUBLE[_iV], 'VT_DOUBLE', " (" + _lValues_VT_DOUBLE[_iV] + ")"); }
 
@@ -717,7 +717,7 @@ var lTests =
         {
           var __lDateStr = _lDate.toJSON().substring(0, 10);
           var __lTimeStr = _lDate.toLocaleTimeString();
-          lMvStore.mvsql("INSERT (\"http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#hasHash\", \"http://www.w3.org/2001/XMLSchema#date\", \"http://www.w3.org/2001/XMLSchema#time\", \"http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#fileUrl\", \"http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#fileName\") VALUES ('" + _lHash + "', TIMESTAMP'" + __lDateStr + "', INTERVAL'" + __lTimeStr + "', '" + _pDir + "', '" + _pFileName + "');", _lSS.next());
+          lMvStore.mvsql("INSERT (\"http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#hasHash\", \"http://www.w3.org/2001/XMLSchema#date\", \"http://www.w3.org/2001/XMLSchema#time\", \"http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#fileUrl\", \"http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#fileName\") VALUES ('" + _lHash + "', TIMESTAMP'" + __lDateStr + "', INTERVAL'" + __lTimeStr + "', '" + _pDir + "', '" + _pFileName + "');", function(__pE, __pR) { assertValidResult(__pR); _lSS.next() });
         });
       _lSS.push(_pOnSuccess);
       _lSS.start();
