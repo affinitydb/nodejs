@@ -913,7 +913,7 @@ var lTests =
     lSS.push(function() { lMvStore.mvsql("DELETE FROM \"http://localhost/mv/class/testphotos1/privilege\";", lSS.simpleOnResponse); });
     var lCntPhotos = 0;
     lSS.push(function() { console.log("Creating a few photos."); lStartTx(lSS); });
-    lSS.push(function() { var _lFiles = lWalkDir("../../tests", ".cpp"); lCntPhotos = _lFiles.length; var _lSS = new InstrSeq(); _lFiles.forEach(function(__pEl) { _lSS.push(function() { lCreatePhoto(__pEl.dirname, __pEl.filename, _lSS.next); }); } ); _lSS.push(lSS.next); _lSS.start(); });
+    lSS.push(function() { var _lFiles = lWalkDir("../../tests_kernel", ".cpp"); lCntPhotos = _lFiles.length; var _lSS = new InstrSeq(); _lFiles.forEach(function(__pEl) { _lSS.push(function() { lCreatePhoto(__pEl.dirname, __pEl.filename, _lSS.next); }); } ); _lSS.push(lSS.next); _lSS.start(); });
     lSS.push(function() { lCommitTx(lSS); });
     lSS.push(function() { lMvStore.mvsqlCount("SELECT * FROM \"http://localhost/mv/class/testphotos1/photo\";", function(_pE, _pR) { lChkCount("photos", lCntPhotos, _pR); lSS.next(); }); });
     var lSomeTags = ["cousin_vinny", "uncle_buck", "sister_suffragette", "country", "city", "zoo", "mountain_2010", "ocean_2004", "Beijing_1999", "Montreal_2003", "LasVegas_2007", "Fred", "Alice", "sceneries", "artwork"];
