@@ -12,6 +12,24 @@ var lib_events = require('events');
 var lib_protobuf = require('protobuf_for_node');
 var lib_assert = require('assert');
 
+// Define a small helper to serialize steps.
+// Note: This is similar in purpose to nodejs's 'step' module.
+module.exports.instrSeq = function()
+{
+  var iSubStep = 0;
+  var lSubSteps = new Array();
+  var lThis = this;
+  this.next = function() { iSubStep++; if (iSubStep < lSubSteps.length) lSubSteps[iSubStep](); }
+  this.push = function(pSubStep) { lSubSteps.push(pSubStep); }
+  this.start = function() { iSubStep = 0; lSubSteps[iSubStep](); }
+  this.curstep = function() { return iSubStep; }
+  this.simpleOnResponse = function(pError, pResponse)
+  {
+    if (pError) { console.error("\n*** ERROR in substep " + lThis.curstep() + ": " + _pError + "\n"); }
+    else { console.log("Result from substep " + lThis.curstep() + ":" + JSON.stringify(pResponse)); lThis.next(); }
+  }
+}
+
 // Connection to a mvStore server.
 // Notes:
 //   . The connection is 'single-threaded' in the sense that it can only handle
@@ -58,7 +76,8 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
   function private_http(_pPath, _pBody, _pCallback)
   {
     var _lStream = _pCallback ? null : new lib_events.EventEmitter();
-    var _lOnError = function(__pErr){ console.log("ERROR (private_http._lOnError): " + __pErr); if (_pCallback) _pCallback(__pErr); else _lStream.emit('error', __pErr); }
+    var _lIsGoodStatus = function(__pResponse) { return __pResponse.statusCode >= 200 && __pResponse.statusCode <= 204; }
+    var _lOnError = function(__pErr){ console.error("ERROR (private_http._lOnError): " + __pErr); if (_pCallback) _pCallback(__pErr); else _lStream.emit('error', __pErr); }
     var _lJsonOut = _pPath.search(/o=json/) >= 0;
     var _lOnResponse =
       _lJsonOut ?
@@ -67,8 +86,22 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
           var __lResponse = "";
           __pResponse.setEncoding('utf8');
           __pResponse.on('data', function(___pChunk) { if (_pCallback) { __lResponse += ___pChunk; } else _lStream.emit('data', ___pChunk); });
-          __pResponse.on('end', function() { if (_pCallback) _pCallback(null, __lResponse.length > 0 ? JSON.parse(__lResponse.replace(/\s+/g, " ")) : null); else _lStream.emit('end'); });
-          __pResponse.on('error', _lOnError);
+          __pResponse.on('end',
+            function()
+            {
+              if (_pCallback)
+              {
+                if (_lIsGoodStatus(__pResponse))
+                  { _pCallback(null, __lResponse.length > 0 ? JSON.parse(__lResponse.replace(/\s+/g, " ")) : null); }
+                else
+                {
+                  console.error("ERROR (private_http): " + __lResponse + "(on " + decodeURIComponent(_pPath) + ")");
+                  _pCallback(__lResponse, null);
+                }
+              }
+              else
+                { _lStream.emit('end'); }
+            });
         }
         :
         function(__pResponse)
@@ -92,8 +125,22 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
               else
                 { _lStream.emit('data', ___pChunk); } 
             });
-          __pResponse.on('end', function() { if (_pCallback) { _pCallback(null, __lResponse ? __lResponse.slice(0, __lCursor) : null); } else _lStream.emit('end'); });
-          __pResponse.on('error', _lOnError);
+          __pResponse.on('end',
+            function()
+            {
+              if (_pCallback)
+              {
+                if (_lIsGoodStatus(__pResponse))
+                  { _pCallback(null, __lResponse ? __lResponse.slice(0, __lCursor) : null); }
+                else
+                {
+                  console.error("ERROR (private_http): " + __lResponse + " (on " + decodeURIComponent(_pPath) + ")");
+                  _pCallback(__lResponse ? __lResponse.slice(0, __lCursor) : "error", null);
+                }
+              }
+              else
+                { _lStream.emit('end'); }
+            });
           __pResponse.on('continue', function() { lib_assert.fail("private_http: received a 'continue' event (not yet handled)."); });
         }
     var _lHeaders = [["Host", lUri.hostname]];
@@ -155,7 +202,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
   }
   private_longhttp.prototype.beginlongpost = function()
   {
-    var _lOnError = function(__pErr){ console.log("ERROR (private_longhttp._lOnError): " + __pErr); this.mCallback(__pErr); }
+    var _lOnError = function(__pErr){ console.error("ERROR (private_longhttp._lOnError): " + __pErr); this.mCallback(__pErr); }
     var _lThis = this;
     var _lOnResponse =
       function(__pResponse)
@@ -180,7 +227,6 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
             }
             _lThis.mCallback(null, (undefined != _lThis.mResponse) ? _lThis.mResponse : ""); _lThis.mResponse = null;
           });
-        __pResponse.on('error', _lOnError);
         __pResponse.on('end', function() { lib_assert.fail("private_longhttp: received an 'end' event (not yet handled)"); });
         __pResponse.on('close', function() { /*lib_assert.fail("private_longhttp: received a 'close' event (not yet handled)");*/ });
         __pResponse.on('continue', function() { lib_assert.fail("private_longhttp: received a 'continue' event (not yet handled)"); });
@@ -266,7 +312,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
     switch (_pO.constructor)
     {
       default: lib_assert.fail("deepCloneObject: unexpected type " + _pO.constructor); break;
-      case Number: case Boolean: case String: // These are immutable or copied by value anyway.
+      case Number: case Boolean: case String: case Ref: // These are immutable or copied by value anyway.
         return _pO;
       case Date: case RegExp: case Function: 
         return new _pO.constructor(_pO);
@@ -381,7 +427,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
       var _lH =
         function(_pE, _pR)
         {
-          if (_pE) { console.log("ERROR (private_TxCtx.makeHandler_onReceivePINs._lH): " + _pE); pCallbackObj.txend(_pE, null); return; }
+          if (_pE) { console.error("ERROR (private_TxCtx.makeHandler_onReceivePINs._lH): " + _pE); pCallbackObj.txend(_pE, null); return; }
           pCallbackObj.txend(null, private_receivePB._createPINs(_pR, new private_PropDict()));
         }
       return _lH;
@@ -395,7 +441,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
     var _lH = 
       function(_pE, _pR, _pTxCtx)
       {
-        if (_pE) { console.log("ERROR (private_TxCtx.makeHandler_onNewEids._lH): " + _pE); pCallbackObj.txend(_pE, null); return; }
+        if (_pE) { console.error("ERROR (private_TxCtx.makeHandler_onNewEids._lH): " + _pE); pCallbackObj.txend(_pE, null); return; }
         var __lParser = new private_PBResponseParser(_pR);
         var __lPINUpdates = _pTxCtx._getRelevantUpdates();
         pCallbackObj.txend(null, __lParser.finalizeUpdates(__lPINUpdates));
@@ -409,7 +455,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
     var _lH =
       function(_pE, _pR)
       {
-        if (_pE) { console.log("ERROR (private_TxCtx.makeHandler_onNewPIDs._lH): " + _pE); pCallbackObj.txend(_pE, null); return; }
+        if (_pE) { console.error("ERROR (private_TxCtx.makeHandler_onNewPIDs._lH): " + _pE); pCallbackObj.txend(_pE, null); return; }
         var __lParser = new private_PBResponseParser(_pR);
         pCallbackObj.txend(null, __lParser.finalizeCreates(_pPINDescriptions));
       };
@@ -570,7 +616,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
     {
       var _lCallback = this.mCallbacks.pop(); // Note: When we invoke the callback it may itself queue up more callbacks, so it's important to pop it right away.
       // console.log("private_TxCtx._doCallback: received e=" + JSON.stringify(pE) + " r=" + JSON.stringify(pR ? lMvStream.parse(pR) : null));
-      if (pE) { console.log("ERROR (private_TxCtx._doCallback): " + pE); _lCallback(pE, null, this); }
+      if (pE) { console.error("ERROR (private_TxCtx._doCallback): " + pE); _lCallback(pE, null, this); }
       else { _lCallback(pE, pR, this); }
       return;
     } 
@@ -691,14 +737,14 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
       _lOpEnd();
       return _mUpdateLength();
     }
-    this.sort = function(/*optional pTxCtx and pOrderFunc*/)
+    this.sort = function(/*optional pCallbackObj and pOrderFunc*/)
     {
       // REVIEW:
       //   Instead of re-implementing sort here, with a weak algorithm,
       //   we could instead let the standard array do its sorting,
       //   and just patch the eid order (like we do in python).
       
-      // Get the current txctx and optional order func.
+      // Get the optional pCallbackObj and order func.
       var _lCallbackObj = null;
       var _lOrderFunc = function(_p1, _p2) { return _p1 < _p2 ? -1 : (_p1 == _p2 ? 0 : 1); }
       for (var _iArg = 0; _iArg < arguments.length; _iArg++)
@@ -872,7 +918,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
     }
     this.get = function(pPropName) { return (_mPropVals[pPropName] instanceof Array) ? new Collection(_lAccessor, pPropName) : _mPropVals[pPropName]; }
     // ---
-    this.toDict = function() { return deepCloneObject(_mPropVals); } // Note: We clone to prevent creating bad habits; this is meant to be used for debugging/introspection.
+    this.toPropValDict = function() { return deepCloneObject(_mPropVals); } // Note: We clone to prevent creating bad habits; this is meant to be used for debugging/introspection.
     this.getExtras = function() { return deepCloneObject(_mExtras); } // Note: This is meant ot be used for debugging/introspection.
   }
 
@@ -895,6 +941,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
     this.get = function() { return {id:_mLocalPID, ident:_mIdent, property:_mProperty, eid:_mEid}; }
     this.getVT = function() { return (undefined != _mEid) ? 'VT_REFIDELT' : ((undefined != _mProperty) ? 'VT_REFIDPROP' : 'VT_REFID'); }
     this.toString = function() { return "@" + _mLocalPID.toString(16) + ((undefined != _mIdent && 0 != _mIdent) ? ("[!" + _mIdent + "]") : "") + ((undefined != _mProperty) ? (".\"" + _mProperty + "\"" + ((undefined != _mEid) ? ("[" + _mEid + "]") : "")) : ""); }
+    this.toJSON = this.get;
   }
 
   // Protobuf: PIN-update representation.
@@ -936,7 +983,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
   {
     var _lOnPBResult = function(__pE, __pR)
     {
-      if (__pE) { console.log("ERROR (private_sendPB._lOnPBResult): " + _pDescr + " failed: " + __pE); _pCallback(__pE, null); }
+      if (__pE) { console.error("ERROR (private_sendPB._lOnPBResult): " + _pDescr + " failed: " + __pE); _pCallback(__pE, null); }
       var __lParser = new private_PBResponseParser(__pR);
       _pCallback(null, (_pPINs[0] instanceof private_PINUpdate) ? __lParser.finalizeUpdates(_pPINs) : __lParser.finalizeCreates(_pPINs));
     }
@@ -1051,7 +1098,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
     else if (pValue instanceof Array)
     {
       if (undefined != pExtra && pExtra.length != pValue.length)
-        { console.log("WARNING (private_sendPB.createPBValue): " + pExtra.length + " extras for " + pValue.length + " elements in the collection!"); return null; }
+        { console.warn("WARNING (private_sendPB.createPBValue): " + pExtra.length + " extras for " + pValue.length + " elements in the collection!"); return null; }
       var _lValues = new Array();
       for (var _iE = 0; _iE < pValue.length; _iE++)
       {
@@ -1147,7 +1194,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
   private_PBResponseParser.prototype.finalizeCreates = function(pPINDescriptions)
   {
     if (this.mParsed.pins.length != pPINDescriptions.length)
-      console.log("WARNING (private_PBResponseParser.finalizeCreates): " + pPINDescriptions.length + " PINs were created, but mvstore's response contained " + this.mParsed.pins.length + " PINs.");
+      console.warn("WARNING (private_PBResponseParser.finalizeCreates): " + pPINDescriptions.length + " PINs were created, but mvstore's response contained " + this.mParsed.pins.length + " PINs.");
     var _lPIDs = [];
     var _lExtras = [];
     this._walk(
@@ -1169,12 +1216,12 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
       _lPINs.push(_lPIDs[_iP]);
     //Interesting... when multiple updates are done on the same pin separately... review...
     //if (this.mParsed.pins.length != Object.keys(_lPIDs).length)
-    //  console.log("WARNING: " + Object.keys(_lPIDs).length + " PINs were modified, but response contained " + this.mParsed.pins.length + " PINs.");
+    //  console.warn("WARNING: " + Object.keys(_lPIDs).length + " PINs were modified, but response contained " + this.mParsed.pins.length + " PINs.");
     this._walk(
       function(_pPINIndex, _pPID)
       { 
         if (_pPINIndex >= pPINUpdates.length) return;
-        if (pPINUpdates[_pPINIndex].getPID() != _pPID) console.log("WARNING (private_PBResponseParser.finalizeUpdates.lambda1): PID mismatch - expected " + pPINUpdates[_pPINIndex].getPID() + " but obtained " + _pPID);
+        if (pPINUpdates[_pPINIndex].getPID() != _pPID) console.warn("WARNING (private_PBResponseParser.finalizeUpdates.lambda1): PID mismatch - expected " + pPINUpdates[_pPINIndex].getPID() + " but obtained " + _pPID);
       },
       function(_pPINIndex, _pExtras)
       {
@@ -1187,7 +1234,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
             if (__lExtras[__iProp] instanceof Array)
             {
               if (__lExtras[__iProp].length != _pExtras[__iProp].length)
-                console.log("WARNING (private_PBResponseParser.finalizeUpdates.lambda2): collection length mismatch (" + __lExtras[__iProp].length + " vs " + _pExtras[__iProp].length + ")" );
+                console.warn("WARNING (private_PBResponseParser.finalizeUpdates.lambda2): collection length mismatch (" + __lExtras[__iProp].length + " vs " + _pExtras[__iProp].length + ")" );
               else for (var __iEl = 0; __iEl < _pExtras[__iProp].length; __iEl++)
                 { private_PBResponseParser._transferExtras(__lExtras[__iProp][__iEl], _pExtras[__iProp][__iEl]); }
             }
@@ -1286,7 +1333,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
     // console.log("private_receivePB._refreshPINs: _lParsed=" + JSON.stringify(_lParsed));
     pPropDict.registerProps(_lParsed.properties);
     if (_lParsed.pins.length != pPINAccessors.length)
-      console.log("WARNING (private_receivePB._refreshPINs): " + pPINAccessors.length + " PINs were refreshed, but mvstore's response contained " + _lParsed.pins.length + " PINs.");
+      console.warn("WARNING (private_receivePB._refreshPINs): " + pPINAccessors.length + " PINs were refreshed, but mvstore's response contained " + _lParsed.pins.length + " PINs.");
     for (var _iO = 0; _iO < _lParsed.pins.length; _iO++)
     {
       var _lPinAttrs = private_receivePB._extractPIN(_lParsed.pins[_iO], pPropDict);
@@ -1365,13 +1412,13 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
   function mvsql(_pMvSql, _pCallback, _pOptions)
   {
     if (private_TxCtx.inExplicitTx())
-      console.log("WARNING (mvsql): mvsql calls can't participate to protobuf transactions at the moment; use mvsqlProto instead.");
+      console.warn("WARNING (mvsql): mvsql calls can't participate to protobuf transactions at the moment; use mvsqlProto instead.");
     return private_http(appendUrlOptions(lUri.pathname + "?q=" + encodeURIComponent(_pMvSql) + "&i=mvsql&o=json", _pOptions), null, _pCallback); 
   }
   function mvsqlCount(_pMvSql, _pCallback)
   {
     if (private_TxCtx.inExplicitTx())
-      console.log("WARNING (mvsqlCount): mvsqlCount calls can't participate to protobuf transactions at the moment; use mvsqlProto instead.");
+      console.warn("WARNING (mvsqlCount): mvsqlCount calls can't participate to protobuf transactions at the moment; use mvsqlProto instead.");
     return private_http(lUri.pathname + "?q=" + encodeURIComponent(_pMvSql) + "&i=mvsql&o=json&type=count", null, _pCallback); 
   }
 

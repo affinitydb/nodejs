@@ -21,25 +21,8 @@ var lib_fs = require('fs');
 var lib_sys = require('sys');
 
 // Connect to the mvstore server.
-var lMvStore = lib_mvstore.createConnection("http://localhost:4560/db/", {keepalive:false});
-
-// Define a small helper to serialize and simplify the presentation of tests.
-// Note: This is similar in purpose to nodejs's 'step' module.
-function InstrSeq()
-{
-  var iSubStep = 0;
-  var lSubSteps = new Array();
-  var lThis = this;
-  this.next = function() { iSubStep++; if (iSubStep < lSubSteps.length) lSubSteps[iSubStep](); }
-  this.push = function(pSubStep) { lSubSteps.push(pSubStep); }
-  this.start = function() { iSubStep = 0; lSubSteps[iSubStep](); }
-  this.curstep = function() { return iSubStep; }
-  this.simpleOnResponse = function(pError, pResponse)
-  {
-    if (pError) { console.log("\n*** ERROR in substep " + lThis.curstep() + ": " + _pError + "\n"); }
-    else { console.log("Result from substep " + lThis.curstep() + ":" + JSON.stringify(pResponse)); lThis.next(); }
-  }
-}
+var lMvStore = lib_mvstore.createConnection("http://nodetests:@localhost:4560/db/", {keepalive:false});
+var InstrSeq = lib_mvstore.instrSeq;
 
 // Define a small helper for simple write-only transactions.
 function doSimpleTx(_pDoSync, _pCallback, _pTxLabel/*optional*/)
@@ -75,7 +58,7 @@ var lTests =
   {
     var lSS = new InstrSeq();
     var lPID, lPINs;
-    var lOnObjects = function(_pE, _pR) { var _lR = ""; lPID = _pR[0].pid; _pR.forEach(function(__pEl){ _lR += JSON.stringify(__pEl.toDict()); }); lSS.simpleOnResponse(_pE, _lR);}
+    var lOnObjects = function(_pE, _pR) { var _lR = ""; lPID = _pR[0].pid; _pR.forEach(function(__pEl){ _lR += JSON.stringify(__pEl.toPropValDict()); }); lSS.simpleOnResponse(_pE, _lR);}
     lSS.push(function() { lMvStore.createPINs([{test_basic_protobuf__a_string:"whatever", test_basic_protobuf__a_number:123, test_basic_protobuf__a_date:new Date(), test_basic_protobuf__an_array:[1, 2, 3, 4]}], lOnObjects); });
     lSS.push(function() { lMvStore.mvsqlProto("SELECT * FROM @" + lPID.toString(16) + ";", function(_pE, _pR) { lPINs = _pR; lSS.simpleOnResponse(null, "found " + _pR.length + " results."); }); });
     lSS.push(
@@ -108,14 +91,14 @@ var lTests =
   {
     var lSS = new InstrSeq();
     var lPID, lPINs;
-    var lOnObjects = function(_pE, _pR) { var _lR = ""; lPID = _pR[0].pid; _pR.forEach(function(__pEl){ _lR += JSON.stringify(__pEl.toDict()); }); lSS.simpleOnResponse(_pE, _lR);}
+    var lOnObjects = function(_pE, _pR) { var _lR = ""; lPID = _pR[0].pid; _pR.forEach(function(__pEl){ _lR += JSON.stringify(__pEl.toPropValDict()); }); lSS.simpleOnResponse(_pE, _lR);}
     lSS.push(function() { lMvStore.createPINs([{pushpoptest:[1,2,3,4,5,6,7,8]}], lOnObjects); });
     lSS.push(function() { lMvStore.mvsqlProto("SELECT * FROM @" + lPID.toString(16) + ";", function(_pE, _pR) { lPINs = _pR; lSS.simpleOnResponse(null, "found " + _pR.length + " results."); }); });
     lSS.push(
       function()
       {
         if (0 == lPINs.length) { lSS.next(); return; }
-        lib_assert.deepEqual(lPINs[0].toDict()["pushpoptest"], [1,2,3,4,5,6,7,8], "poptest before");
+        lib_assert.deepEqual(lPINs[0].toPropValDict()["pushpoptest"], [1,2,3,4,5,6,7,8], "poptest before");
         console.log("Performing 2 pops.");
         doSimpleTx(
           function()
@@ -128,17 +111,17 @@ var lTests =
           },
           function()
           {
-            lib_assert.deepEqual(lPINs[0].toDict()["pushpoptest"], [1,2,3,4,5,6], "poptest after (mem)");
+            lib_assert.deepEqual(lPINs[0].toPropValDict()["pushpoptest"], [1,2,3,4,5,6], "poptest after (mem)");
             lSS.next();
           });
       });
     lSS.push(function() { lPINs[0].refresh(lSS.simpleOnResponse); });
-    lSS.push(function() { lib_assert.deepEqual(lPINs[0].toDict()["pushpoptest"], [1,2,3,4,5,6], "poptest after (disk)"); lSS.next(); });
+    lSS.push(function() { lib_assert.deepEqual(lPINs[0].toPropValDict()["pushpoptest"], [1,2,3,4,5,6], "poptest after (disk)"); lSS.next(); });
     lSS.push(
       function()
       {
         if (0 == lPINs.length) { lSS.next(); return; }
-        lib_assert.deepEqual(lPINs[0].toDict()["pushpoptest"], [1,2,3,4,5,6], "pushtest before");
+        lib_assert.deepEqual(lPINs[0].toPropValDict()["pushpoptest"], [1,2,3,4,5,6], "pushtest before");
         console.log("Performing 2 pushes.");
         doSimpleTx(
           function()
@@ -149,12 +132,12 @@ var lTests =
           },
           function()
           {
-            lib_assert.deepEqual(lPINs[0].toDict()["pushpoptest"], [1,2,3,4,5,6,"Z","a"], "pushtest after (mem)");
+            lib_assert.deepEqual(lPINs[0].toPropValDict()["pushpoptest"], [1,2,3,4,5,6,"Z","a"], "pushtest after (mem)");
             lSS.next();
           });
       });
     lSS.push(function() { lPINs[0].refresh(lSS.simpleOnResponse); });
-    lSS.push(function() { console.log(JSON.stringify(lPINs[0].toDict())); lib_assert.deepEqual(lPINs[0].toDict()["pushpoptest"], [1,2,3,4,5,6,"Z","a"], "pushtest after (disk)"); lSS.next(); });
+    lSS.push(function() { console.log(JSON.stringify(lPINs[0].toPropValDict())); lib_assert.deepEqual(lPINs[0].toPropValDict()["pushpoptest"], [1,2,3,4,5,6,"Z","a"], "pushtest after (disk)"); lSS.next(); });
     lSS.push(function() { console.log("done."); pOnSuccess(); });
     lSS.start();
   },
@@ -162,14 +145,14 @@ var lTests =
   {
     var lSS = new InstrSeq();
     var lPID, lPINs;
-    var lOnObjects = function(_pE, _pR) { var _lR = ""; lPID = _pR[0].pid; _pR.forEach(function(__pEl){ _lR += JSON.stringify(__pEl.toDict()); }); lSS.simpleOnResponse(_pE, _lR);}
+    var lOnObjects = function(_pE, _pR) { var _lR = ""; lPID = _pR[0].pid; _pR.forEach(function(__pEl){ _lR += JSON.stringify(__pEl.toPropValDict()); }); lSS.simpleOnResponse(_pE, _lR);}
     lSS.push(function() { lMvStore.createPINs([{shifttest:[1,2,3,4,5,6,7,8]}], lOnObjects); });
     lSS.push(function() { lMvStore.mvsqlProto("SELECT * FROM @" + lPID.toString(16) + ";", function(_pE, _pR) { lPINs = _pR; lSS.simpleOnResponse(null, "found " + _pR.length + " results."); }); });
     lSS.push(
       function()
       {
         if (0 == lPINs.length) { lSS.next(); return; }
-        lib_assert.deepEqual(lPINs[0].toDict()["shifttest"], [1,2,3,4,5,6,7,8], "shifttest before");
+        lib_assert.deepEqual(lPINs[0].toPropValDict()["shifttest"], [1,2,3,4,5,6,7,8], "shifttest before");
         console.log("Performing 2 shifts.");
         doSimpleTx(
           function()
@@ -180,17 +163,17 @@ var lTests =
           },
           function()
           {
-            lib_assert.deepEqual(lPINs[0].toDict()["shifttest"], [3,4,5,6,7,8], "shifttest after (mem)");
+            lib_assert.deepEqual(lPINs[0].toPropValDict()["shifttest"], [3,4,5,6,7,8], "shifttest after (mem)");
             lSS.next();
           });
       });
     lSS.push(function() { lPINs[0].refresh(lSS.simpleOnResponse); });
-    lSS.push(function() { lib_assert.deepEqual(lPINs[0].toDict()["shifttest"], [3,4,5,6,7,8], "shifttest after (disk)"); lSS.next(); });
+    lSS.push(function() { lib_assert.deepEqual(lPINs[0].toPropValDict()["shifttest"], [3,4,5,6,7,8], "shifttest after (disk)"); lSS.next(); });
     lSS.push(
       function()
       {
         if (0 == lPINs.length) { lSS.next(); return; }
-        lib_assert.deepEqual(lPINs[0].toDict()["shifttest"], [3,4,5,6,7,8], "unshifttest before");
+        lib_assert.deepEqual(lPINs[0].toPropValDict()["shifttest"], [3,4,5,6,7,8], "unshifttest before");
         console.log("Performing 3 unshifts.");
         doSimpleTx(
           function()
@@ -202,12 +185,12 @@ var lTests =
           },
           function()
           {
-            lib_assert.deepEqual(lPINs[0].toDict()["shifttest"], ["c",11,9,10,"a","b",3,4,5,6,7,8], "unshifttest after (mem)");
+            lib_assert.deepEqual(lPINs[0].toPropValDict()["shifttest"], ["c",11,9,10,"a","b",3,4,5,6,7,8], "unshifttest after (mem)");
             lSS.next();
           });
       });
     lSS.push(function() { lPINs[0].refresh(lSS.simpleOnResponse); });
-    lSS.push(function() { console.log(JSON.stringify(lPINs[0].toDict())); lib_assert.deepEqual(lPINs[0].toDict()["shifttest"], ["c",11,9,10,"a","b",3,4,5,6,7,8], "unshifttest after (disk)"); lSS.next(); });
+    lSS.push(function() { console.log(JSON.stringify(lPINs[0].toPropValDict())); lib_assert.deepEqual(lPINs[0].toPropValDict()["shifttest"], ["c",11,9,10,"a","b",3,4,5,6,7,8], "unshifttest after (disk)"); lSS.next(); });
     lSS.push(function() { console.log("done."); pOnSuccess(); });
     lSS.start();
   },
@@ -215,20 +198,20 @@ var lTests =
   {
     var lSS = new InstrSeq();
     var lPID, lPINs;
-    var lOnObjects = function(_pE, _pR) { var _lR = ""; lPID = _pR[0].pid; _pR.forEach(function(__pEl){ _lR += JSON.stringify(__pEl.toDict()); }); lSS.simpleOnResponse(_pE, _lR);}
+    var lOnObjects = function(_pE, _pR) { var _lR = ""; lPID = _pR[0].pid; _pR.forEach(function(__pEl){ _lR += JSON.stringify(__pEl.toPropValDict()); }); lSS.simpleOnResponse(_pE, _lR);}
     lSS.push(function() { lMvStore.createPINs([{splicetest:['aa','bb','cc','dd','ee','ff']}], lOnObjects); });
     lSS.push(function() { lMvStore.mvsqlProto("SELECT * FROM @" + lPID.toString(16) + ";", function(_pE, _pR) { lPINs = _pR; lSS.simpleOnResponse(null, "found " + _pR.length + " results."); }); });
     lSS.push(
       function()
       {
         if (0 == lPINs.length) { lSS.next(); return; }
-        lib_assert.deepEqual(lPINs[0].toDict()["splicetest"], ["aa","bb","cc","dd","ee","ff"], "splicetest before");
+        lib_assert.deepEqual(lPINs[0].toPropValDict()["splicetest"], ["aa","bb","cc","dd","ee","ff"], "splicetest before");
         lPINs[0].get("splicetest").splice(
           1,10,6,7,8,9,10,
-          {txend:function() { lib_assert.deepEqual(lPINs[0].toDict()["splicetest"], ["aa",6,7,8,9,10], "splicetest after (mem)"); lSS.next(); }});
+          {txend:function() { lib_assert.deepEqual(lPINs[0].toPropValDict()["splicetest"], ["aa",6,7,8,9,10], "splicetest after (mem)"); lSS.next(); }});
       });
     lSS.push(function() { lPINs[0].refresh(lSS.simpleOnResponse); });
-    lSS.push(function() { console.log(JSON.stringify(lPINs[0].toDict())); lib_assert.deepEqual(lPINs[0].toDict()["splicetest"], ["aa",6,7,8,9,10], "splicetest after (disk)"); lSS.next(); });
+    lSS.push(function() { console.log(JSON.stringify(lPINs[0].toPropValDict())); lib_assert.deepEqual(lPINs[0].toPropValDict()["splicetest"], ["aa",6,7,8,9,10], "splicetest after (disk)"); lSS.next(); });
     lSS.push(function() { console.log("done."); pOnSuccess(); });
     lSS.start();
   },
@@ -236,19 +219,19 @@ var lTests =
   {
     var lSS = new InstrSeq();
     var lPID, lPINs;
-    var lOnObjects = function(_pE, _pR) { var _lR = ""; lPID = _pR[0].pid; _pR.forEach(function(__pEl){ _lR += JSON.stringify(__pEl.toDict()); }); lSS.simpleOnResponse(_pE, _lR);}
+    var lOnObjects = function(_pE, _pR) { var _lR = ""; lPID = _pR[0].pid; _pR.forEach(function(__pEl){ _lR += JSON.stringify(__pEl.toPropValDict()); }); lSS.simpleOnResponse(_pE, _lR);}
     lSS.push(function() { lMvStore.createPINs([{reversetest:["a","b","c","d","e","f","g"]}], lOnObjects); });
     lSS.push(function() { lMvStore.mvsqlProto("SELECT * FROM @" + lPID.toString(16) + ";", function(_pE, _pR) { lPINs = _pR; lSS.simpleOnResponse(null, "found " + _pR.length + " results."); }); });
     lSS.push(
       function()
       {
         if (0 == lPINs.length) { lSS.next(); return; }
-        lib_assert.deepEqual(lPINs[0].toDict()["reversetest"], ["a","b","c","d","e","f","g"], "reversetest before");
+        lib_assert.deepEqual(lPINs[0].toPropValDict()["reversetest"], ["a","b","c","d","e","f","g"], "reversetest before");
         lPINs[0].get("reversetest").reverse(
-          {txend:function() { lib_assert.deepEqual(lPINs[0].toDict()["reversetest"], ["g","f","e","d","c","b","a"], "reversetest after (mem)"); lSS.next(); }});
+          {txend:function() { lib_assert.deepEqual(lPINs[0].toPropValDict()["reversetest"], ["g","f","e","d","c","b","a"], "reversetest after (mem)"); lSS.next(); }});
       });
     lSS.push(function() { lPINs[0].refresh(lSS.simpleOnResponse); });
-    lSS.push(function() { console.log(JSON.stringify(lPINs[0].toDict())); lib_assert.deepEqual(lPINs[0].toDict()["reversetest"], ["g","f","e","d","c","b","a"], "reversetest after (disk)"); lSS.next(); });
+    lSS.push(function() { console.log(JSON.stringify(lPINs[0].toPropValDict())); lib_assert.deepEqual(lPINs[0].toPropValDict()["reversetest"], ["g","f","e","d","c","b","a"], "reversetest after (disk)"); lSS.next(); });
     lSS.push(function() { console.log("done."); pOnSuccess(); });
     lSS.start();
   },
@@ -256,19 +239,19 @@ var lTests =
   {
     var lSS = new InstrSeq();
     var lPID, lPINs;
-    var lOnObjects = function(_pE, _pR) { var _lR = ""; lPID = _pR[0].pid; _pR.forEach(function(__pEl){ _lR += JSON.stringify(__pEl.toDict()); }); lSS.simpleOnResponse(_pE, _lR);}
+    var lOnObjects = function(_pE, _pR) { var _lR = ""; lPID = _pR[0].pid; _pR.forEach(function(__pEl){ _lR += JSON.stringify(__pEl.toPropValDict()); }); lSS.simpleOnResponse(_pE, _lR);}
     lSS.push(function() { lMvStore.createPINs([{sorttest:[5,8,2,3,1,4,7,6]}], lOnObjects); });
     lSS.push(function() { lMvStore.mvsqlProto("SELECT * FROM @" + lPID.toString(16) + ";", function(_pE, _pR) { lPINs = _pR; lSS.simpleOnResponse(null, "found " + _pR.length + " results."); }); });
     lSS.push(
       function()
       {
         if (0 == lPINs.length) { lSS.next(); return; }
-        lib_assert.deepEqual(lPINs[0].toDict()["sorttest"], [5,8,2,3,1,4,7,6], "sorttest before");
+        lib_assert.deepEqual(lPINs[0].toPropValDict()["sorttest"], [5,8,2,3,1,4,7,6], "sorttest before");
         lPINs[0].get("sorttest").sort(
-          {txend:function() { lib_assert.deepEqual(lPINs[0].toDict()["sorttest"], [1,2,3,4,5,6,7,8], "sorttest after (mem)"); lSS.next(); }});
+          {txend:function() { lib_assert.deepEqual(lPINs[0].toPropValDict()["sorttest"], [1,2,3,4,5,6,7,8], "sorttest after (mem)"); lSS.next(); }});
       });
     lSS.push(function() { lPINs[0].refresh(lSS.simpleOnResponse); });
-    lSS.push(function() { console.log(JSON.stringify(lPINs[0].toDict())); lib_assert.deepEqual(lPINs[0].toDict()["sorttest"], [1,2,3,4,5,6,7,8], "sorttest after (disk)"); lSS.next(); });
+    lSS.push(function() { console.log(JSON.stringify(lPINs[0].toPropValDict())); lib_assert.deepEqual(lPINs[0].toPropValDict()["sorttest"], [1,2,3,4,5,6,7,8], "sorttest after (disk)"); lSS.next(); });
     lSS.push(function() { console.log("done."); pOnSuccess(); });
     lSS.start();
   },
@@ -636,7 +619,25 @@ var lTests =
     lSS.push(function() { lMvStore.mvsql("SELECT * FROM mv:ClassOfClasses WHERE BEGINS(mv:classID, 'http://localhost/mv/class/test_qnames/');", lOnSelectClasses); });
     lSS.push(function() { if (lClassesExist) lSS.next(); else lMvStore.mvsql("CREATE CLASS myqnamec:pos AS SELECT * WHERE EXISTS(myqnamep:x) AND EXISTS(myqnamep:y);", lSS.simpleOnResponse); });
     lSS.push(function() { lMvStore.mvsql("INSERT (myqnamep:x, myqnamep:y) VALUES (" + Math.random() + "," + Math.random() + ");", lSS.simpleOnResponse); });
-    lSS.push(function() { lMvStore.mvsqlProto("SELECT * FROM myqnamec:pos;", function(_pE, _pR) { assertValidResult(_pR); for (var _iP = 0; _iP < _pR.length; _iP++) { console.log(JSON.stringify(_pR[_iP].toDict())); } lSS.next(); }); });
+    lSS.push(function() { lMvStore.mvsqlProto("SELECT * FROM myqnamec:pos;", function(_pE, _pR) { assertValidResult(_pR); for (var _iP = 0; _iP < _pR.length; _iP++) { console.log(JSON.stringify(_pR[_iP].toPropValDict())); } lSS.next(); }); });
+    lSS.push(function() { console.log("done."); pOnSuccess(); });
+    lSS.start();
+  },
+  test_scalar_vs_collection:function(pOnSuccess)
+  {
+    var lSS = new InstrSeq();
+    var lPIN;
+    var lOnObjects = function(_pE, _pR) { assertValidResult(_pR); lPIN = _pR[0]; lSS.next(); }
+    lSS.push(function() { lMvStore.createPINs([{test_scalar_vs_collection:"whatever"}], lOnObjects); });
+    lSS.push(function() { lPIN.set("test_scalar_vs_collection", ["s1", 2, "s3", 4], {txend:lSS.next}); });
+    lSS.push(function() { lib_assert.deepEqual(lPIN.toPropValDict()["test_scalar_vs_collection"], ["s1", 2, "s3", 4], "scalar -> collection (1)"); lPIN.refresh(lSS.next); });
+    lSS.push(function() { lib_assert.deepEqual(lPIN.toPropValDict()["test_scalar_vs_collection"], ["s1", 2, "s3", 4], "scalar -> collection (2)"); lSS.next(); });
+    lSS.push(function() { lPIN.set("test_scalar_vs_collection", [1, "s2", 3], {txend:lSS.next}); });
+    lSS.push(function() { lib_assert.deepEqual(lPIN.toPropValDict()["test_scalar_vs_collection"], [1, "s2", 3], "collection -> collection (1)"); lPIN.refresh(lSS.next); });
+    lSS.push(function() { lib_assert.deepEqual(lPIN.toPropValDict()["test_scalar_vs_collection"], [1, "s2", 3], "collection -> collection (2)"); lSS.next(); });
+    lSS.push(function() { lPIN.set("test_scalar_vs_collection", 123, {txend:lSS.next}); });
+    lSS.push(function() { lib_assert.deepEqual(lPIN.toPropValDict()["test_scalar_vs_collection"], 123, "collection -> scalar (1)"); lPIN.refresh(lSS.next); });
+    lSS.push(function() { lib_assert.deepEqual(lPIN.toPropValDict()["test_scalar_vs_collection"], 123, "collection -> scalar (2)"); lSS.next(); });
     lSS.push(function() { console.log("done."); pOnSuccess(); });
     lSS.start();
   },
@@ -913,7 +914,7 @@ var lTests =
     lSS.push(function() { lMvStore.mvsql("DELETE FROM \"http://localhost/mv/class/testphotos1/privilege\";", lSS.simpleOnResponse); });
     var lCntPhotos = 0;
     lSS.push(function() { console.log("Creating a few photos."); lStartTx(lSS); });
-    lSS.push(function() { var _lFiles = lWalkDir("../../tests_kernel", ".cpp"); lCntPhotos = _lFiles.length; var _lSS = new InstrSeq(); _lFiles.forEach(function(__pEl) { _lSS.push(function() { lCreatePhoto(__pEl.dirname, __pEl.filename, _lSS.next); }); } ); _lSS.push(lSS.next); _lSS.start(); });
+    lSS.push(function() { var _lFiles = lWalkDir("../../tests", ".cpp"); lCntPhotos = _lFiles.length; var _lSS = new InstrSeq(); _lFiles.forEach(function(__pEl) { _lSS.push(function() { lCreatePhoto(__pEl.dirname, __pEl.filename, _lSS.next); }); } ); _lSS.push(lSS.next); _lSS.start(); });
     lSS.push(function() { lCommitTx(lSS); });
     lSS.push(function() { lMvStore.mvsqlCount("SELECT * FROM \"http://localhost/mv/class/testphotos1/photo\";", function(_pE, _pR) { lChkCount("photos", lCntPhotos, _pR); lSS.next(); }); });
     var lSomeTags = ["cousin_vinny", "uncle_buck", "sister_suffragette", "country", "city", "zoo", "mountain_2010", "ocean_2004", "Beijing_1999", "Montreal_2003", "LasVegas_2007", "Fred", "Alice", "sceneries", "artwork"];
@@ -1476,6 +1477,7 @@ var lRunNextTest =
     if (_lTN.slice(0, 4) != "test") { console.log("\nSkipping " + _lTN); iTest++; lRunNextTest(pOnlyThisTest); return; }
     if (undefined != pOnlyThisTest && pOnlyThisTest != _lTN) { iTest++; lRunNextTest(pOnlyThisTest); return; }
     console.log("\nRunning " + _lTN + ":");
-    lTests[_lTN](function(){ iTest++; lRunNextTest(pOnlyThisTest); });
+    console.time(_lTN);
+    lTests[_lTN](function(){ console.timeEnd(_lTN); iTest++; lRunNextTest(pOnlyThisTest); });
   };
 lRunNextTest(/*"test_types"*/);
