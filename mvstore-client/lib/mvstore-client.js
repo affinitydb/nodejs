@@ -1322,8 +1322,11 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
     // dbg_savePBStr(pPB);
     // console.log("private_receivePB._createPINs: _lParsed=" + JSON.stringify(_lParsed));
     pPropDict.registerProps(_lParsed.properties);
-    for (var _iO = 0; _iO < _lParsed.pins.length; _iO++)
-      _lPINs.push(new PIN(private_receivePB._extractPIN(_lParsed.pins[_iO], pPropDict)));
+    if (undefined != _lParsed.pins) // Note: Could happen on some DELETE operations, for example.
+    {
+      for (var _iO = 0; _iO < _lParsed.pins.length; _iO++)
+        _lPINs.push(new PIN(private_receivePB._extractPIN(_lParsed.pins[_iO], pPropDict)));
+    }
     return _lPINs;
   }
   private_receivePB._refreshPINs = function(pPB, pPropDict, pPINAccessors)
@@ -1406,7 +1409,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
   /**
    * Public interface.
    */
-
+  
   // Main, self-sufficient mvsql interface (json output).
   // TODO: Maybe integrate a more automatic means of handling pagination (i.e. always paginate).
   function mvsql(_pMvSql, _pCallback, _pOptions)
@@ -1503,6 +1506,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
   //---
   var lConnection =
   {
+    rawGet:function(_pCallback) {private_http("", null, _pCallback);},
     keptAlive:function() {return lKeepAlive.on;},
     mvsql: mvsql, mvsqlCount: mvsqlCount,
     mvsqlProto:mvsqlProto, createPINs:createPINs,
