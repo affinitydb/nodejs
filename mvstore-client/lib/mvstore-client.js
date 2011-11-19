@@ -95,7 +95,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
                   { _pCallback(null, __lResponse.length > 0 ? JSON.parse(__lResponse.replace(/\s+/g, " ")) : null); }
                 else
                 {
-                  console.error("ERROR (private_http): " + __lResponse + "(on " + decodeURIComponent(_pPath) + ")");
+                  console.error("ERROR " + __pResponse.statusCode + " (private_http): " + __lResponse + "(on " + decodeURIComponent(_pPath) + ")");
                   _pCallback(__lResponse, null);
                 }
               }
