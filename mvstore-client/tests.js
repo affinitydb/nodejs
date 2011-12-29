@@ -834,7 +834,7 @@ var lTests =
         "SELECT * FROM \"http://localhost/mv/class/testphotos1/privilege\"(" + _lFirstTags.join(',') + ") AS p JOIN \"http://localhost/mv/class/testphotos1/user\" AS u ON (p.\"http://code.google.com/p/tagont/hasVisibility\" = u.\"http://xmlns.com/foaf/0.1/mbox\");",
         function(__pE, __pR)
         {
-          var __lUOINames = new Array(); if (__pR) { __pR.forEach(function(___pEl) { __lUOINames.push(___pEl["http://code.google.com/p/tagont/hasVisibility"]); }); }
+          var __lUOINames = new Array(); if (__pR) { __pR.forEach(function(___pEl) { __lUOINames.push(___pEl[0]["http://code.google.com/p/tagont/hasVisibility"]); }); }
           console.log("users that have one of " + _lFirstTags.join(',') + ": " + __lUOINames.join(','));
           _pOnSuccess(__pR);
         });
@@ -867,7 +867,7 @@ var lTests =
             function(__pE, __pR)
             {
               var __lExpectedTags = lInMemoryChk.getUserTags(_pUserName).sort();
-              __pR.forEach(function(___pEl){ _lTags[___pEl["http://code.google.com/p/tagont/hasTagLabel"]] = 1; });
+              __pR.forEach(function(___pEl){ _lTags[___pEl[0]["http://code.google.com/p/tagont/hasTagLabel"]] = 1; });
               var __lActualTags = Object.keys(_lTags).slice(0).sort();
               console.log("user " + _pUserName + " has tags " + __lActualTags.join(','));
               if (JSON.stringify(__lExpectedTags) != JSON.stringify(__lActualTags))
@@ -884,7 +884,7 @@ var lTests =
             "SELECT * FROM \"http://localhost/mv/class/testphotos1/photo\" AS p JOIN \"http://localhost/mv/class/testphotos1/tagging\" AS t ON (p.\"http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#hasHash\" = t.\"http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#hasHash\") WHERE t.\"http://code.google.com/p/tagont/hasTagLabel\" IN (" + __lTags.join(',') + ");",
             function(__pE, __pR)
             {
-              __pR.forEach(function(___pEl){ _lUniquePhotos[___pEl["http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#hasHash"]] = 1; });
+              __pR.forEach(function(___pEl){ _lUniquePhotos[___pEl[0]["http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#hasHash"]] = 1; });
               if (Object.keys(_lUniquePhotos).length != __pR.length)
                 console.log("non-unique: " + __pR.length + " unique: " + Object.keys(_lUniquePhotos).length);
               _lSS.next();
@@ -935,7 +935,7 @@ var lTests =
     var lTags = null, lUsersOfInterest = null;
     lSS.push(function() { lMvStore.mvsql("SELECT * FROM \"http://localhost/mv/class/testphotos1/tag\";", function(_pE, _pR) { lTags = _pR.slice(0); lSS.next(); }); });
     lSS.push(function() { lGetUsersOfInterest(lTags, function(_pR){ lUsersOfInterest = _pR != null ? _pR.slice(0) : []; lSS.next(); }); });
-    lSS.push(function() { var _lSS = new InstrSeq(); lUsersOfInterest.forEach(function(_pEl){ _lSS.push(function(){ lCountUserPhotos(_pEl["http://code.google.com/p/tagont/hasVisibility"], _lSS.next); }); }); _lSS.push(lSS.next); _lSS.start(); });
+    lSS.push(function() { var _lSS = new InstrSeq(); lUsersOfInterest.forEach(function(_pEl){ _lSS.push(function(){ lCountUserPhotos(_pEl[0]["http://code.google.com/p/tagont/hasVisibility"], _lSS.next); }); }); _lSS.push(lSS.next); _lSS.start(); });
     lSS.push(function() { console.log("done."); pOnSuccess(); });
     lSS.start();
   },

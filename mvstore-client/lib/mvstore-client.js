@@ -25,7 +25,7 @@ module.exports.instrSeq = function()
   this.curstep = function() { return iSubStep; }
   this.simpleOnResponse = function(pError, pResponse)
   {
-    if (pError) { console.error("\n*** ERROR in substep " + lThis.curstep() + ": " + _pError + "\n"); }
+    if (pError) { console.error("\n*** ERROR in substep " + lThis.curstep() + ": " + pError + "\n"); }
     else { console.log("Result from substep " + lThis.curstep() + ":" + JSON.stringify(pResponse)); lThis.next(); }
   }
 }
