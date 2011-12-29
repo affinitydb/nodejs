@@ -62,6 +62,17 @@ function processSqlFile(pFileName, pFinalCallback, pMaxLineLen)
         undefined != _lFullStmt.match(/explain/i) ||
         undefined != _lFullStmt.match(/prepare/i))
           { console.log("ignored"); _pContinue(); }
+      else if (undefined != _lFullStmt.match(/select\s*count/i)) // Count queries not yet supported with protobuf output.
+      {
+        lMvStore.mvsql(
+          _lFullStmt,
+          function(_pE, _pR)
+          {
+            console.log("obtained: " + ((undefined != _pE) ? "failure" : JSON.stringify(_pR)));
+            if (undefined != _pE && STOP_AT_FIRST_ERROR) { throw _pE; }
+            setTimeout(_pContinue, DELAY_BETWEEN_OPS_IN_MS);
+          });
+      }
       else // Standard request.
       {
         lMvStore.mvsqlProto(
@@ -99,8 +110,8 @@ function processSqlFile(pFileName, pFinalCallback, pMaxLineLen)
 
 // Processing of all .sql files.
 var lSS = new InstrSeq();
-var lSqlFiles = walkDir("../../test4mvsql/test", ".sql");
-//lSS.push(function() { var _lSS = new InstrSeq(); lSqlFiles.forEach(function(_pEl) { _lSS.push(function() { processSqlFile(_pEl.dirname + "/" + _pEl.filename, _lSS.next); }); }); _lSS.push(lSS.next); _lSS.start(); });
-lSS.push(function() { var _lF = lSqlFiles[4]; processSqlFile(_lF.dirname + "/" + _lF.filename, lSS.next); });
+var lSqlFiles = walkDir("../../tests_kernel/mvsql", ".sql");
+lSS.push(function() { var _lSS = new InstrSeq(); lSqlFiles.forEach(function(_pEl) { _lSS.push(function() { processSqlFile(_pEl.dirname + "/" + _pEl.filename, _lSS.next); }); }); _lSS.push(lSS.next); _lSS.start(); });
+//lSS.push(function() { var _lF = lSqlFiles[4]; processSqlFile(_lF.dirname + "/" + _lF.filename, lSS.next); });
 lSS.push(function() { console.log("Done."); lMvStore.terminate(); });
 lSS.start();
