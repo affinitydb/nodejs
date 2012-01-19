@@ -1425,7 +1425,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
   function private_sanitizeSemicolon(pQ)
   {
     // Remove the last semicolon, if any, to make sure the store recognizes single-instructions as such (relevant for pathSQL->JSON only).
-    if (undefined == pQ || 0 == pQ.length) return;
+    if (undefined == pQ || 0 == pQ.length) return "";
     for (var _i = pQ.length - 1; _i >= 0; _i--)
     {
       switch (pQ.charAt(_i))
