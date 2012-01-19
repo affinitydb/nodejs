@@ -106,7 +106,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
               if (_pCallback)
               {
                 if (_lIsGoodStatus(__pResponse))
-                  { _pCallback(null, __lResponse.length > 0 ? JSON.parse(__lResponse.replace(/\s+/g, " ")) : null); }
+                  { _pCallback(null, (undefined != __lResponse && __lResponse.length > 0) ? JSON.parse(__lResponse.replace(/\s+/g, " ")) : null); }
                 else
                 {
                   console.error("ERROR " + __pResponse.statusCode + " (private_http): " + __lResponse + "(on " + decodeURIComponent(_pPath) + ")");
@@ -1422,6 +1422,22 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
     return null;
   }
 
+  function private_sanitizeSemicolon(pQ)
+  {
+    // Remove the last semicolon, if any, to make sure the store recognizes single-instructions as such (relevant for pathSQL->JSON only).
+    if (undefined == pQ || 0 == pQ.length) return;
+    for (var _i = pQ.length - 1; _i >= 0; _i--)
+    {
+      switch (pQ.charAt(_i))
+      {
+        case ";": return pQ.substr(0, _i);
+        case " ": case "\n": continue;
+        default: return pQ;
+      }
+    }
+    return "";
+  }
+
   /**
    * Public interface.
    */
@@ -1432,13 +1448,13 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
   {
     if (private_TxCtx.inExplicitTx())
       console.warn("WARNING (pathsql): pathsql calls can't participate to protobuf transactions at the moment; use pathsqlProto instead.");
-    return private_http(appendUrlOptions(lUri.pathname + "?q=" + encodeURIComponent(_pPathSql) + "&i=pathsql&o=json", _pOptions), null, _pCallback); 
+    return private_http(appendUrlOptions(lUri.pathname + "?q=" + encodeURIComponent(private_sanitizeSemicolon(_pPathSql)) + "&i=pathsql&o=json", _pOptions), null, _pCallback); 
   }
   function pathsqlCount(_pPathSql, _pCallback)
   {
     if (private_TxCtx.inExplicitTx())
       console.warn("WARNING (pathsqlCount): pathsqlCount calls can't participate to protobuf transactions at the moment; use pathsqlProto instead.");
-    return private_http(lUri.pathname + "?q=" + encodeURIComponent(_pPathSql) + "&i=pathsql&o=json&type=count", null, _pCallback); 
+    return private_http(lUri.pathname + "?q=" + encodeURIComponent(private_sanitizeSemicolon(_pPathSql)) + "&i=pathsql&o=json&type=count", null, _pCallback); 
   }
 
   // Auxiliary protobuf enhancers.
