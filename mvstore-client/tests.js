@@ -45,22 +45,22 @@ var lTests =
    * Trivial tests (quick checks / examples).
    */
   
-  test_basic_mvsql:function(pOnSuccess) // Pure mvsql with json responses.
+  test_basic_pathsql:function(pOnSuccess) // Pure pathSQL with json responses.
   {
     var lSS = new InstrSeq();
     var lPID;
-    lSS.push(function() { lMvStore.mvsql("INSERT (test_basic_mvsql__name, test_basic_mvsql__profession) VALUES ('Roger', 'Painter');", function(_pE, _pR) { assertValidResult(_pR); lPID = _pR[0].id; lSS.simpleOnResponse(_pE, _pR); }); });
-    lSS.push(function() { lMvStore.mvsql("SELECT * WHERE EXISTS(test_basic_mvsql__name);", function(_pE, _pR) { assertValidResult(_pR); var _lFound = false; for (var _iP = 0; _iP < _pR.length; _iP++) { if (lPID == _pR[_iP].id) _lFound = true; } lib_assert.ok(_lFound); lSS.simpleOnResponse(_pE, _pR); }); });
+    lSS.push(function() { lMvStore.q("INSERT (test_basic_pathsql__name, test_basic_pathsql__profession) VALUES ('Roger', 'Painter');", function(_pE, _pR) { assertValidResult(_pR); lPID = _pR[0].id; lSS.simpleOnResponse(_pE, _pR); }); });
+    lSS.push(function() { lMvStore.q("SELECT * WHERE EXISTS(test_basic_pathsql__name);", function(_pE, _pR) { assertValidResult(_pR); var _lFound = false; for (var _iP = 0; _iP < _pR.length; _iP++) { if (lPID == _pR[_iP].id) _lFound = true; } lib_assert.ok(_lFound); lSS.simpleOnResponse(_pE, _pR); }); });
     lSS.push(function() { console.log("done."); pOnSuccess(); });
     lSS.start();
   },
-  test_basic_protobuf:function(pOnSuccess) // Protobuf-in, mvsql with protobuf-out, basic PIN interface.
+  test_basic_protobuf:function(pOnSuccess) // Protobuf-in, pathSQL with protobuf-out, basic PIN interface.
   {
     var lSS = new InstrSeq();
     var lPID, lPINs;
     var lOnObjects = function(_pE, _pR) { var _lR = ""; lPID = _pR[0].pid; _pR.forEach(function(__pEl){ _lR += JSON.stringify(__pEl.toPropValDict()); }); lSS.simpleOnResponse(_pE, _lR);}
     lSS.push(function() { lMvStore.createPINs([{test_basic_protobuf__a_string:"whatever", test_basic_protobuf__a_number:123, test_basic_protobuf__a_date:new Date(), test_basic_protobuf__an_array:[1, 2, 3, 4]}], lOnObjects); });
-    lSS.push(function() { lMvStore.mvsqlProto("SELECT * FROM @" + lPID.toString(16) + ";", function(_pE, _pR) { lPINs = _pR; lSS.simpleOnResponse(null, "found " + _pR.length + " results."); }); });
+    lSS.push(function() { lMvStore.qProto("SELECT * FROM @" + lPID.toString(16) + ";", function(_pE, _pR) { lPINs = _pR; lSS.simpleOnResponse(null, "found " + _pR.length + " results."); }); });
     lSS.push(
       function()
       {
@@ -76,7 +76,7 @@ var lTests =
           lSS.next);
       });
     lSS.push(function() { lPINs[0].refresh(lSS.simpleOnResponse); }); // Could automate something like this, on transactions that sacrificed some immediate updates (e.g. new eids).
-    lSS.push(function() { lMvStore.mvsql("SELECT * WHERE EXISTS(test_basic_protobuf__an_array);", lSS.simpleOnResponse); });       
+    lSS.push(function() { lMvStore.q("SELECT * WHERE EXISTS(test_basic_protobuf__an_array);", lSS.simpleOnResponse); });       
     lSS.push(function() { console.log("done."); pOnSuccess(); });
     lSS.start();
   },
@@ -93,7 +93,7 @@ var lTests =
     var lPID, lPINs;
     var lOnObjects = function(_pE, _pR) { var _lR = ""; lPID = _pR[0].pid; _pR.forEach(function(__pEl){ _lR += JSON.stringify(__pEl.toPropValDict()); }); lSS.simpleOnResponse(_pE, _lR);}
     lSS.push(function() { lMvStore.createPINs([{pushpoptest:[1,2,3,4,5,6,7,8]}], lOnObjects); });
-    lSS.push(function() { lMvStore.mvsqlProto("SELECT * FROM @" + lPID.toString(16) + ";", function(_pE, _pR) { lPINs = _pR; lSS.simpleOnResponse(null, "found " + _pR.length + " results."); }); });
+    lSS.push(function() { lMvStore.qProto("SELECT * FROM @" + lPID.toString(16) + ";", function(_pE, _pR) { lPINs = _pR; lSS.simpleOnResponse(null, "found " + _pR.length + " results."); }); });
     lSS.push(
       function()
       {
@@ -147,7 +147,7 @@ var lTests =
     var lPID, lPINs;
     var lOnObjects = function(_pE, _pR) { var _lR = ""; lPID = _pR[0].pid; _pR.forEach(function(__pEl){ _lR += JSON.stringify(__pEl.toPropValDict()); }); lSS.simpleOnResponse(_pE, _lR);}
     lSS.push(function() { lMvStore.createPINs([{shifttest:[1,2,3,4,5,6,7,8]}], lOnObjects); });
-    lSS.push(function() { lMvStore.mvsqlProto("SELECT * FROM @" + lPID.toString(16) + ";", function(_pE, _pR) { lPINs = _pR; lSS.simpleOnResponse(null, "found " + _pR.length + " results."); }); });
+    lSS.push(function() { lMvStore.qProto("SELECT * FROM @" + lPID.toString(16) + ";", function(_pE, _pR) { lPINs = _pR; lSS.simpleOnResponse(null, "found " + _pR.length + " results."); }); });
     lSS.push(
       function()
       {
@@ -200,7 +200,7 @@ var lTests =
     var lPID, lPINs;
     var lOnObjects = function(_pE, _pR) { var _lR = ""; lPID = _pR[0].pid; _pR.forEach(function(__pEl){ _lR += JSON.stringify(__pEl.toPropValDict()); }); lSS.simpleOnResponse(_pE, _lR);}
     lSS.push(function() { lMvStore.createPINs([{splicetest:['aa','bb','cc','dd','ee','ff']}], lOnObjects); });
-    lSS.push(function() { lMvStore.mvsqlProto("SELECT * FROM @" + lPID.toString(16) + ";", function(_pE, _pR) { lPINs = _pR; lSS.simpleOnResponse(null, "found " + _pR.length + " results."); }); });
+    lSS.push(function() { lMvStore.qProto("SELECT * FROM @" + lPID.toString(16) + ";", function(_pE, _pR) { lPINs = _pR; lSS.simpleOnResponse(null, "found " + _pR.length + " results."); }); });
     lSS.push(
       function()
       {
@@ -221,7 +221,7 @@ var lTests =
     var lPID, lPINs;
     var lOnObjects = function(_pE, _pR) { var _lR = ""; lPID = _pR[0].pid; _pR.forEach(function(__pEl){ _lR += JSON.stringify(__pEl.toPropValDict()); }); lSS.simpleOnResponse(_pE, _lR);}
     lSS.push(function() { lMvStore.createPINs([{reversetest:["a","b","c","d","e","f","g"]}], lOnObjects); });
-    lSS.push(function() { lMvStore.mvsqlProto("SELECT * FROM @" + lPID.toString(16) + ";", function(_pE, _pR) { lPINs = _pR; lSS.simpleOnResponse(null, "found " + _pR.length + " results."); }); });
+    lSS.push(function() { lMvStore.qProto("SELECT * FROM @" + lPID.toString(16) + ";", function(_pE, _pR) { lPINs = _pR; lSS.simpleOnResponse(null, "found " + _pR.length + " results."); }); });
     lSS.push(
       function()
       {
@@ -241,7 +241,7 @@ var lTests =
     var lPID, lPINs;
     var lOnObjects = function(_pE, _pR) { var _lR = ""; lPID = _pR[0].pid; _pR.forEach(function(__pEl){ _lR += JSON.stringify(__pEl.toPropValDict()); }); lSS.simpleOnResponse(_pE, _lR);}
     lSS.push(function() { lMvStore.createPINs([{sorttest:[5,8,2,3,1,4,7,6]}], lOnObjects); });
-    lSS.push(function() { lMvStore.mvsqlProto("SELECT * FROM @" + lPID.toString(16) + ";", function(_pE, _pR) { lPINs = _pR; lSS.simpleOnResponse(null, "found " + _pR.length + " results."); }); });
+    lSS.push(function() { lMvStore.qProto("SELECT * FROM @" + lPID.toString(16) + ";", function(_pE, _pR) { lPINs = _pR; lSS.simpleOnResponse(null, "found " + _pR.length + " results."); }); });
     lSS.push(
       function()
       {
@@ -259,7 +259,7 @@ var lTests =
   /**
    * Simple tests for transactions.
    * There are 2 methods for controlling transactions:
-   *   1. via mvsql statements; this requires a keep-alive connection (see lib_mvstore.createConnection)
+   *   1. via pathSQL statements; this requires a keep-alive connection (see lib_mvstore.createConnection)
    *   2. via the connection's startTx/commitTx/rollbackTx public methods, in protobuf mode
    */
   
@@ -267,10 +267,10 @@ var lTests =
   {
     var lSS = new InstrSeq();
     var lPID, lPINs, lCondPIN;
-    lSS.push(function() { lMvStore.mvsql("INSERT (txtest) VALUES (5);", function(_pE, _pR) { lPID = _pR[0].id; lSS.next() }); });
-    lSS.push(function() { lMvStore.mvsql("INSERT (txtest) VALUES (125);", lSS.next); });
-    lSS.push(function() { lMvStore.mvsql("SELECT * WHERE (txtest > 100);", lSS.simpleOnResponse); });
-    lSS.push(function() { lMvStore.mvsqlProto("SELECT * FROM @" + lPID.toString(16) + ";", function(_pE, _pR) { lPINs = _pR; lSS.simpleOnResponse(null, "found " + _pR.length + " results."); }); });
+    lSS.push(function() { lMvStore.q("INSERT (txtest) VALUES (5);", function(_pE, _pR) { lPID = _pR[0].id; lSS.next() }); });
+    lSS.push(function() { lMvStore.q("INSERT (txtest) VALUES (125);", lSS.next); });
+    lSS.push(function() { lMvStore.q("SELECT * WHERE (txtest > 100);", lSS.simpleOnResponse); });
+    lSS.push(function() { lMvStore.qProto("SELECT * FROM @" + lPID.toString(16) + ";", function(_pE, _pR) { lPINs = _pR; lSS.simpleOnResponse(null, "found " + _pR.length + " results."); }); });
     lSS.push(
       function()
       {
@@ -284,7 +284,7 @@ var lTests =
     lSS.push(
       function()
       {
-        lMvStore.mvsqlProto("SELECT * WHERE txtest > 100;", function(_pE, _pR) { console.log("newselect: " + JSON.stringify(_pR)); if (_pR.length > 0 && "pid" in _pR[0]) lCondPIN = _pR[0]; lSS.next(); });
+        lMvStore.qProto("SELECT * WHERE txtest > 100;", function(_pE, _pR) { console.log("newselect: " + JSON.stringify(_pR)); if (_pR.length > 0 && "pid" in _pR[0]) lCondPIN = _pR[0]; lSS.next(); });
       });
     lSS.push(
       function()
@@ -300,10 +300,10 @@ var lTests =
   {
     var lSS = new InstrSeq();
     var lPID, lPINs, lCondPIN;
-    lSS.push(function() { lMvStore.mvsql("INSERT (txtest) VALUES (5);", function(_pE, _pR) { lPID = _pR[0].id; lSS.next() }); });
-    lSS.push(function() { lMvStore.mvsql("INSERT (txtest) VALUES (125);", lSS.next); });
-    lSS.push(function() { lMvStore.mvsql("SELECT * WHERE (txtest > 100);", lSS.simpleOnResponse); });
-    lSS.push(function() { lMvStore.mvsqlProto("SELECT * FROM @" + lPID.toString(16) + ";", function(_pE, _pR) { lPINs = _pR; lSS.simpleOnResponse(null, "found " + _pR.length + " results."); }); });
+    lSS.push(function() { lMvStore.q("INSERT (txtest) VALUES (5);", function(_pE, _pR) { lPID = _pR[0].id; lSS.next() }); });
+    lSS.push(function() { lMvStore.q("INSERT (txtest) VALUES (125);", lSS.next); });
+    lSS.push(function() { lMvStore.q("SELECT * WHERE (txtest > 100);", lSS.simpleOnResponse); });
+    lSS.push(function() { lMvStore.qProto("SELECT * FROM @" + lPID.toString(16) + ";", function(_pE, _pR) { lPINs = _pR; lSS.simpleOnResponse(null, "found " + _pR.length + " results."); }); });
     lSS.push(
       function()
       {
@@ -311,7 +311,7 @@ var lTests =
         lMvStore.startTx("main");
         lPINs[0].set("txtest", 6);
         lPINs[0].set("someotherprop", 6);
-        lMvStore.mvsqlProto("SELECT * WHERE (txtest > 100);", function(_pE, _pR) { console.log("newselect: " + JSON.stringify(_pR)); if (_pR.length > 0 && "pid" in _pR[0]) lCondPIN = _pR[0]; lSS.next(); });
+        lMvStore.qProto("SELECT * WHERE (txtest > 100);", function(_pE, _pR) { console.log("newselect: " + JSON.stringify(_pR)); if (_pR.length > 0 && "pid" in _pR[0]) lCondPIN = _pR[0]; lSS.next(); });
         // Note:
         //   Unlike in test_tx1, here the results returned by mvstore are mixed (prop sets + select)...
       });
@@ -346,12 +346,12 @@ var lTests =
   test_tx_simple_read:function(pOnSuccess)
   {
     var lSS = new InstrSeq();
-    lSS.push(function() { lMvStore.mvsql("INSERT (txtest) VALUES (125);", lSS.next); });
+    lSS.push(function() { lMvStore.q("INSERT (txtest) VALUES (125);", lSS.next); });
     lSS.push(
       function()
       {
         lMvStore.startTx();
-        lMvStore.mvsqlProto(
+        lMvStore.qProto(
           "SELECT * WHERE (txtest > 100);",
           function(_pE, _pR)
           {
@@ -372,14 +372,14 @@ var lTests =
     }
     var lSS = new InstrSeq();
     var lPID;
-    lSS.push(function() { console.log("Creating an object and committing."); lMvStore.mvsql("START TRANSACTION;", lSS.simpleOnResponse); });
-    lSS.push(function() { lMvStore.mvsql("INSERT (tx_keepalive_committed) VALUES (1);", function(_pE, _pR) { lPID = _pR[0].id; lSS.next() }); });
-    lSS.push(function() { lMvStore.mvsql("COMMIT;", lSS.simpleOnResponse); });
-    lSS.push(function() { console.log("Adding a property and rolling back."); lMvStore.mvsql("START TRANSACTION;", lSS.simpleOnResponse); });
-    lSS.push(function() { lMvStore.mvsql("UPDATE @" + lPID.toString(16) + " SET tx_keepalive_rolledback=2;", lSS.simpleOnResponse); });
-    lSS.push(function() { lMvStore.mvsql("SELECT * FROM @" + lPID.toString(16) + ";", function(_pE, _pR) { lib_assert.ok("tx_keepalive_committed" in _pR[0] && "tx_keepalive_rolledback" in _pR[0], "before rollback"); lSS.next(); }); });
-    lSS.push(function() { lMvStore.mvsql("ROLLBACK;", lSS.simpleOnResponse); });
-    lSS.push(function() { lMvStore.mvsql("SELECT * FROM @" + lPID.toString(16) + ";", function(_pE, _pR) { lib_assert.ok("tx_keepalive_committed" in _pR[0] && !("tx_keepalive_rolledback" in _pR[0]), "after rollback"); lSS.next(); }); });
+    lSS.push(function() { console.log("Creating an object and committing."); lMvStore.q("START TRANSACTION;", lSS.simpleOnResponse); });
+    lSS.push(function() { lMvStore.q("INSERT (tx_keepalive_committed) VALUES (1);", function(_pE, _pR) { lPID = _pR[0].id; lSS.next() }); });
+    lSS.push(function() { lMvStore.q("COMMIT;", lSS.simpleOnResponse); });
+    lSS.push(function() { console.log("Adding a property and rolling back."); lMvStore.q("START TRANSACTION;", lSS.simpleOnResponse); });
+    lSS.push(function() { lMvStore.q("UPDATE @" + lPID.toString(16) + " SET tx_keepalive_rolledback=2;", lSS.simpleOnResponse); });
+    lSS.push(function() { lMvStore.q("SELECT * FROM @" + lPID.toString(16) + ";", function(_pE, _pR) { lib_assert.ok("tx_keepalive_committed" in _pR[0] && "tx_keepalive_rolledback" in _pR[0], "before rollback"); lSS.next(); }); });
+    lSS.push(function() { lMvStore.q("ROLLBACK;", lSS.simpleOnResponse); });
+    lSS.push(function() { lMvStore.q("SELECT * FROM @" + lPID.toString(16) + ";", function(_pE, _pR) { lib_assert.ok("tx_keepalive_committed" in _pR[0] && !("tx_keepalive_rolledback" in _pR[0]), "after rollback"); lSS.next(); }); });
     lSS.push(function() { console.log("done."); pOnSuccess(); });
     lSS.start();
   },
@@ -399,7 +399,7 @@ var lTests =
           {
             var _lSS = new InstrSeq();
             var _lPIN;
-            _lSS.push(function() { lMvStore.mvsqlProto("INSERT (\"http://localhost/mv/property/test_types/value1\") VALUES (" + _pValueStr + ");", function(_pE, _pR) { assertValidResult(_pR); _lPIN = _pR[0]; _lSS.next() }); });
+            _lSS.push(function() { lMvStore.qProto("INSERT (\"http://localhost/mv/property/test_types/value1\") VALUES (" + _pValueStr + ");", function(_pE, _pR) { assertValidResult(_pR); _lPIN = _pR[0]; _lSS.next() }); });
             _lSS.push(function() { _lPIN.set("http://localhost/mv/property/test_types/value2", _pValue, {txend:function(){_lSS.next();}}); });
             _lSS.push(function() { _lPIN.refresh(_lSS.next); });
             _lSS.push(
@@ -476,7 +476,7 @@ var lTests =
           }
           return 0;
         }
-        _lSS.push(function() { lMvStore.mvsqlProto("INSERT (\"http://localhost/mv/property/test_types/value1\") VALUES (X'" + _lBin2HexStr(_lValue) + "');", function(_pE, _pR) { assertValidResult(_pR); _lPIN = _pR[0]; _lSS.next() }); });
+        _lSS.push(function() { lMvStore.qProto("INSERT (\"http://localhost/mv/property/test_types/value1\") VALUES (X'" + _lBin2HexStr(_lValue) + "');", function(_pE, _pR) { assertValidResult(_pR); _lPIN = _pR[0]; _lSS.next() }); });
         _lSS.push(function() { _lPIN.set("http://localhost/mv/property/test_types/value2", _lValue, {txend:function(){_lSS.next();}}); });
         _lSS.push(function() { _lPIN.refresh(_lSS.next); });
         _lSS.push(
@@ -502,7 +502,7 @@ var lTests =
         var _lSS = new InstrSeq();
         var _lPIN;
         var _lValue = lMvStore.makeUrl("urn:issn:1234-5678");
-        _lSS.push(function() { lMvStore.mvsqlProto("INSERT (\"http://localhost/mv/property/test_types/value1\") VALUES (U'" + _lValue.toString() + "');", function(_pE, _pR) { assertValidResult(_pR); _lPIN = _pR[0]; _lSS.next() }); });
+        _lSS.push(function() { lMvStore.qProto("INSERT (\"http://localhost/mv/property/test_types/value1\") VALUES (U'" + _lValue.toString() + "');", function(_pE, _pR) { assertValidResult(_pR); _lPIN = _pR[0]; _lSS.next() }); });
         _lSS.push(function() { _lPIN.set("http://localhost/mv/property/test_types/value2", _lValue, {txend:function(){_lSS.next();}}); });
         _lSS.push(function() { _lPIN.refresh(_lSS.next); });
         _lSS.push(
@@ -532,7 +532,7 @@ var lTests =
         var _lSS = new InstrSeq();
         var _lPIN;
         var _lValue = 123.456;
-        _lSS.push(function() { lMvStore.mvsqlProto("INSERT (\"http://localhost/mv/property/test_types/value1\") VALUES (" + _lValue + "f);", function(_pE, _pR) { assertValidResult(_pR); _lPIN = _pR[0]; _lSS.next() }); });
+        _lSS.push(function() { lMvStore.qProto("INSERT (\"http://localhost/mv/property/test_types/value1\") VALUES (" + _lValue + "f);", function(_pE, _pR) { assertValidResult(_pR); _lPIN = _pR[0]; _lSS.next() }); });
         _lSS.push(
           function()
           {
@@ -566,7 +566,7 @@ var lTests =
             _lSS.next();
           });
         var _lPINReferencing;
-        _lSS.push(function() { lMvStore.mvsqlProto("INSERT (\"http://localhost/mv/property/test_types/REFID/value1\", \"http://localhost/mv/property/test_types/REFIDPROP/value1\", \"http://localhost/mv/property/test_types/REFIDELT/value1\") VALUES (" + _lRefid.toString() + "," + _lRefidprop.toString() + "," + _lRefidelt.toString() + ");", function(_pE, _pR) { assertValidResult(_pR); _lPINReferencing = _pR[0]; _lSS.next() }); });
+        _lSS.push(function() { lMvStore.qProto("INSERT (\"http://localhost/mv/property/test_types/REFID/value1\", \"http://localhost/mv/property/test_types/REFIDPROP/value1\", \"http://localhost/mv/property/test_types/REFIDELT/value1\") VALUES (" + _lRefid.toString() + "," + _lRefidprop.toString() + "," + _lRefidelt.toString() + ");", function(_pE, _pR) { assertValidResult(_pR); _lPINReferencing = _pR[0]; _lSS.next() }); });
         _lSS.push(function() { _lPINReferencing.set("http://localhost/mv/property/test_types/REFID/value2", _lRefid, {txend:function(){_lSS.next();}}); });
         _lSS.push(function() { _lPINReferencing.set("http://localhost/mv/property/test_types/REFIDPROP/value2", _lRefidprop, {txend:function(){_lSS.next();}}); });
         _lSS.push(function() { _lPINReferencing.set("http://localhost/mv/property/test_types/REFIDELT/value2", _lRefidelt, {txend:function(){_lSS.next();}}); });
@@ -612,14 +612,14 @@ var lTests =
     }
     var lSS = new InstrSeq();
     var lPID;
-    lSS.push(function() { lMvStore.mvsql("SET PREFIX myqnamec: 'http://localhost/mv/class/test_qnames/';", lSS.next); });
-    lSS.push(function() { lMvStore.mvsql("SET PREFIX myqnamep: 'http://localhost/mv/property/test_qnames/';", lSS.next); });
+    lSS.push(function() { lMvStore.q("SET PREFIX myqnamec: 'http://localhost/mv/class/test_qnames/';", lSS.next); });
+    lSS.push(function() { lMvStore.q("SET PREFIX myqnamep: 'http://localhost/mv/property/test_qnames/';", lSS.next); });
     var lClassesExist = false;
     var lOnSelectClasses = function(pError, pResponse) { console.log("substep " + lSS.curstep()); if (pError) console.log("\n*** ERROR: " + pError + "\n"); else { console.log("Result from step " + lSS.curstep() + ":" + JSON.stringify(pResponse)); lClassesExist = (pResponse && pResponse.length > 0); lSS.next(); } }
-    lSS.push(function() { lMvStore.mvsql("SELECT * FROM mv:ClassOfClasses WHERE BEGINS(mv:classID, 'http://localhost/mv/class/test_qnames/');", lOnSelectClasses); });
-    lSS.push(function() { if (lClassesExist) lSS.next(); else lMvStore.mvsql("CREATE CLASS myqnamec:pos AS SELECT * WHERE EXISTS(myqnamep:x) AND EXISTS(myqnamep:y);", lSS.simpleOnResponse); });
-    lSS.push(function() { lMvStore.mvsql("INSERT (myqnamep:x, myqnamep:y) VALUES (" + Math.random() + "," + Math.random() + ");", lSS.simpleOnResponse); });
-    lSS.push(function() { lMvStore.mvsqlProto("SELECT * FROM myqnamec:pos;", function(_pE, _pR) { assertValidResult(_pR); for (var _iP = 0; _iP < _pR.length; _iP++) { console.log(JSON.stringify(_pR[_iP].toPropValDict())); } lSS.next(); }); });
+    lSS.push(function() { lMvStore.q("SELECT * FROM mv:ClassOfClasses WHERE BEGINS(mv:classID, 'http://localhost/mv/class/test_qnames/');", lOnSelectClasses); });
+    lSS.push(function() { if (lClassesExist) lSS.next(); else lMvStore.q("CREATE CLASS myqnamec:pos AS SELECT * WHERE EXISTS(myqnamep:x) AND EXISTS(myqnamep:y);", lSS.simpleOnResponse); });
+    lSS.push(function() { lMvStore.q("INSERT (myqnamep:x, myqnamep:y) VALUES (" + Math.random() + "," + Math.random() + ");", lSS.simpleOnResponse); });
+    lSS.push(function() { lMvStore.qProto("SELECT * FROM myqnamec:pos;", function(_pE, _pR) { assertValidResult(_pR); for (var _iP = 0; _iP < _pR.length; _iP++) { console.log(JSON.stringify(_pR[_iP].toPropValDict())); } lSS.next(); }); });
     lSS.push(function() { console.log("done."); pOnSuccess(); });
     lSS.start();
   },
@@ -645,7 +645,7 @@ var lTests =
   /**
    * Simple pseudo-application: personal photo server storage back-end.
    *
-   * This example relies exclusively on the mvsql mode with json responses (no protobuf).
+   * This example relies exclusively on the pathSQL mode with json responses (no protobuf).
    * The transaction-control statements are disabled if the connection is not using keep-alive.
    * The data model is essentially relational (no collection or reference, just classes).
    *
@@ -662,7 +662,7 @@ var lTests =
    *   7. it double-checks everything with an in-memory representation
    */
 
-  test_app_photos1:function(pOnSuccess) // Same as python/tests/testPhotos1.py. Uses only mvsql and mvsqlCount.
+  test_app_photos1:function(pOnSuccess) // Same as python/tests/testPhotos1.py. Uses only 'q' and 'qCount' (not qProto).
   {
     if (!lMvStore.keptAlive())
     {
@@ -703,8 +703,8 @@ var lTests =
         _lResult += _lChars.charAt(Math.floor(Math.random() * _lChars.length));
       return _lResult;
     }
-    var lStartTx = function(_pSS) { if (lMvStore.keptAlive()) { lMvStore.mvsql("START TRANSACTION;", _pSS.next); } else { _pSS.next(); } }
-    var lCommitTx = function(_pSS) { if (lMvStore.keptAlive()) { lMvStore.mvsql("COMMIT;", _pSS.next); } else { _pSS.next(); } }
+    var lStartTx = function(_pSS) { if (lMvStore.keptAlive()) { lMvStore.q("START TRANSACTION;", _pSS.next); } else { _pSS.next(); } }
+    var lCommitTx = function(_pSS) { if (lMvStore.keptAlive()) { lMvStore.q("COMMIT;", _pSS.next); } else { _pSS.next(); } }
     var lCreatePhoto = function(_pDir, _pFileName, _pOnSuccess) // Creates the specified photo object in the db (asynchronous).
     {
       var _lFullPath = _pDir + "/" + _pFileName;
@@ -718,7 +718,7 @@ var lTests =
         {
           var __lDateStr = _lDate.toJSON().substring(0, 10);
           var __lTimeStr = _lDate.toLocaleTimeString();
-          lMvStore.mvsql("INSERT (\"http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#hasHash\", \"http://www.w3.org/2001/XMLSchema#date\", \"http://www.w3.org/2001/XMLSchema#time\", \"http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#fileUrl\", \"http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#fileName\") VALUES ('" + _lHash + "', TIMESTAMP'" + __lDateStr + "', INTERVAL'" + __lTimeStr + "', '" + _pDir + "', '" + _pFileName + "');", function(__pE, __pR) { assertValidResult(__pR); _lSS.next() });
+          lMvStore.q("INSERT (\"http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#hasHash\", \"http://www.w3.org/2001/XMLSchema#date\", \"http://www.w3.org/2001/XMLSchema#time\", \"http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#fileUrl\", \"http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#fileName\") VALUES ('" + _lHash + "', TIMESTAMP'" + __lDateStr + "', INTERVAL'" + __lTimeStr + "', '" + _pDir + "', '" + _pFileName + "');", function(__pE, __pR) { assertValidResult(__pR); _lSS.next() });
         });
       _lSS.push(_pOnSuccess);
       _lSS.start();
@@ -727,15 +727,15 @@ var lTests =
     {
       lInMemoryChk.setUserGroup(_pUser, _pGroup);
       var _lSS = new InstrSeq();
-      _lSS.push(function() { lMvStore.mvsql("INSERT (\"http://xmlns.com/foaf/0.1/mbox\", \"http://www.w3.org/2002/01/p3prdfv1#user.login.password\", \"http://xmlns.com/foaf/0.1/member/adomain:Group\") VALUES ('" + _pUser + "', '" + lRandomString(20)  + "', '" + _pGroup + "');", _lSS.next); });
-      _lSS.push(function() { lMvStore.mvsqlCount("SELECT * FROM \"http://localhost/mv/class/testphotos1/user\" WHERE \"http://xmlns.com/foaf/0.1/member/adomain:Group\"='" + _pGroup + "';", function(__pE, __pR) { console.log("group " + _pGroup + " contains " + __pR + " users"); _lSS.next(); }) });
+      _lSS.push(function() { lMvStore.q("INSERT (\"http://xmlns.com/foaf/0.1/mbox\", \"http://www.w3.org/2002/01/p3prdfv1#user.login.password\", \"http://xmlns.com/foaf/0.1/member/adomain:Group\") VALUES ('" + _pUser + "', '" + lRandomString(20)  + "', '" + _pGroup + "');", _lSS.next); });
+      _lSS.push(function() { lMvStore.qCount("SELECT * FROM \"http://localhost/mv/class/testphotos1/user\" WHERE \"http://xmlns.com/foaf/0.1/member/adomain:Group\"='" + _pGroup + "';", function(__pE, __pR) { console.log("group " + _pGroup + " contains " + __pR + " users"); _lSS.next(); }) });
       _lSS.push(_pOnSuccess);
       _lSS.start();
     };
     var lSelectDistinctGroups = function(_pOnSuccess) // Selects all distinct group names (asynchronous).
     {
       // Review: eventually mvstore will allow to SELECT DISTINCT(groupid) FROM users...
-      lMvStore.mvsql(
+      lMvStore.q(
         "SELECT * FROM \"http://localhost/mv/class/testphotos1/user\";",
         function(__pE, __pR)
         {
@@ -756,13 +756,13 @@ var lTests =
         else
         {
           lInMemoryChk.tagPhoto(__pPhoto["http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#hasHash"], _pTagName);
-          lMvStore.mvsql("INSERT (\"http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#hasHash\", \"http://code.google.com/p/tagont/hasTagLabel\") VALUES ('" + __pPhoto["http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#hasHash"] + "', '" + _pTagName + "');", __pOnSuccess);
+          lMvStore.q("INSERT (\"http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#hasHash\", \"http://code.google.com/p/tagont/hasTagLabel\") VALUES ('" + __pPhoto["http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#hasHash"] + "', '" + _pTagName + "');", __pOnSuccess);
         }
       };
       _lSS.push(function() { lStartTx(_lSS); });
-      _lSS.push(function() { lMvStore.mvsqlCount("SELECT * FROM \"http://localhost/mv/class/testphotos1/tag\" WHERE \"http://code.google.com/p/tagont/hasTagLabel\"='" + _pTagName + "';", function(__pE, __pR) { _lTagCount = __pR; _lSS.next(); }); });
-      _lSS.push(function() { if (0 == _lTagCount) { console.log("adding tag " + _pTagName); lMvStore.mvsql("INSERT (\"http://code.google.com/p/tagont/hasTagLabel\") VALUES ('" + _pTagName + "');", _lSS.next); } else _lSS.next(); });
-      _lSS.push(function() { lMvStore.mvsql("SELECT * FROM \"http://localhost/mv/class/testphotos1/photo\";", function(__pE, __pR) { var __lSS = new InstrSeq(); __pR.forEach(function(___pEl) { __lSS.push(function() { _lTagPhoto(___pEl, __lSS.next) }); }); __lSS.push(_lSS.next); __lSS.start(); }); });
+      _lSS.push(function() { lMvStore.qCount("SELECT * FROM \"http://localhost/mv/class/testphotos1/tag\" WHERE \"http://code.google.com/p/tagont/hasTagLabel\"='" + _pTagName + "';", function(__pE, __pR) { _lTagCount = __pR; _lSS.next(); }); });
+      _lSS.push(function() { if (0 == _lTagCount) { console.log("adding tag " + _pTagName); lMvStore.q("INSERT (\"http://code.google.com/p/tagont/hasTagLabel\") VALUES ('" + _pTagName + "');", _lSS.next); } else _lSS.next(); });
+      _lSS.push(function() { lMvStore.q("SELECT * FROM \"http://localhost/mv/class/testphotos1/photo\";", function(__pE, __pR) { var __lSS = new InstrSeq(); __pR.forEach(function(___pEl) { __lSS.push(function() { _lTagPhoto(___pEl, __lSS.next) }); }); __lSS.push(_lSS.next); __lSS.start(); }); });
       _lSS.push(function() { lCommitTx(_lSS); });
       _lSS.push(_pOnSuccess);
       _lSS.start();
@@ -774,7 +774,7 @@ var lTests =
       var _lOneTag = function(__pGroupId, __pTagName, __pSS)
       {
         lInMemoryChk.addGroupPrivilege(__pGroupId, __pTagName);
-        __pSS.push(function() { lMvStore.mvsql("INSERT (\"http://code.google.com/p/tagont/hasTagLabel\", \"http://code.google.com/p/tagont/hasVisibility\") VALUES ('" + __pTagName + "', '" + __pGroupId + "');", __pSS.next); });
+        __pSS.push(function() { lMvStore.q("INSERT (\"http://code.google.com/p/tagont/hasTagLabel\", \"http://code.google.com/p/tagont/hasVisibility\") VALUES ('" + __pTagName + "', '" + __pGroupId + "');", __pSS.next); });
       }
       var _lOneIter = function(__pGroupId, __pOnSuccess)
       {
@@ -790,7 +790,7 @@ var lTests =
         __lSS.start();
       };
       _lSS.push(function() { lSelectDistinctGroups(function(__pR) { _lGroupIds = __pR.slice(0); console.log("groups: " + JSON.stringify(_lGroupIds)); _lSS.next(); }); });
-      _lSS.push(function() { lMvStore.mvsql("SELECT * FROM \"http://localhost/mv/class/testphotos1/tag\";", function(__pE, __pR) { _lTags = __pR.slice(0); var __lTagsStr = ""; __pR.forEach(function(___pEl) { __lTagsStr = __lTagsStr + ___pEl["http://code.google.com/p/tagont/hasTagLabel"] + " "; }); console.log("tags: " + __lTagsStr); _lSS.next(); }); });
+      _lSS.push(function() { lMvStore.q("SELECT * FROM \"http://localhost/mv/class/testphotos1/tag\";", function(__pE, __pR) { _lTags = __pR.slice(0); var __lTagsStr = ""; __pR.forEach(function(___pEl) { __lTagsStr = __lTagsStr + ___pEl["http://code.google.com/p/tagont/hasTagLabel"] + " "; }); console.log("tags: " + __lTagsStr); _lSS.next(); }); });
       _lSS.push(function() { var __lSS = new InstrSeq(); _lGroupIds.forEach(function(__pEl) { __lSS.push(function() { _lOneIter(__pEl, __lSS.next); }); }); __lSS.push(_lSS.next); __lSS.start(); });
       _lSS.push(_pOnSuccess);
       _lSS.start();
@@ -802,7 +802,7 @@ var lTests =
       var _lOneTag = function(__pSS, __pUserName, __pTagName)
       {
         lInMemoryChk.addUserPrivilege(__pUserName, __pTagName);
-        __pSS.push(function() { lMvStore.mvsql("INSERT (\"http://code.google.com/p/tagont/hasTagLabel\", \"http://code.google.com/p/tagont/hasVisibility\") VALUES ('" + __pTagName + "', '" + __pUserName + "');", __pSS.next); });
+        __pSS.push(function() { lMvStore.q("INSERT (\"http://code.google.com/p/tagont/hasTagLabel\", \"http://code.google.com/p/tagont/hasVisibility\") VALUES ('" + __pTagName + "', '" + __pUserName + "');", __pSS.next); });
       }
       var _lOneIter = function(__pUser, __pOnSuccess)
       {
@@ -818,8 +818,8 @@ var lTests =
         __lSS.push(__pOnSuccess);
         __lSS.start();
       };
-      _lSS.push(function() { lMvStore.mvsql("SELECT * FROM \"http://localhost/mv/class/testphotos1/user\";", function(__pE, __pR) { _lUsers = __pR.slice(0); var __lUsersStr = ""; __pR.forEach(function(___pEl) { __lUsersStr = __lUsersStr + ___pEl["http://xmlns.com/foaf/0.1/mbox"] + " "; }); console.log("users: " + __lUsersStr); _lSS.next(); }); });
-      _lSS.push(function() { lMvStore.mvsql("SELECT * FROM \"http://localhost/mv/class/testphotos1/tag\";", function(__pE, __pR) { _lTags = __pR.slice(0); var __lTagsStr = ""; __pR.forEach(function(___pEl) { __lTagsStr = __lTagsStr + ___pEl["http://code.google.com/p/tagont/hasTagLabel"] + " "; }); console.log("tags: " + __lTagsStr); _lSS.next(); }); });
+      _lSS.push(function() { lMvStore.q("SELECT * FROM \"http://localhost/mv/class/testphotos1/user\";", function(__pE, __pR) { _lUsers = __pR.slice(0); var __lUsersStr = ""; __pR.forEach(function(___pEl) { __lUsersStr = __lUsersStr + ___pEl["http://xmlns.com/foaf/0.1/mbox"] + " "; }); console.log("users: " + __lUsersStr); _lSS.next(); }); });
+      _lSS.push(function() { lMvStore.q("SELECT * FROM \"http://localhost/mv/class/testphotos1/tag\";", function(__pE, __pR) { _lTags = __pR.slice(0); var __lTagsStr = ""; __pR.forEach(function(___pEl) { __lTagsStr = __lTagsStr + ___pEl["http://code.google.com/p/tagont/hasTagLabel"] + " "; }); console.log("tags: " + __lTagsStr); _lSS.next(); }); });
       _lSS.push(function() { var __lSS = new InstrSeq(); _lUsers.forEach(function(__pEl) { __lSS.push(function() { _lOneIter(__pEl, __lSS.next); }); }); __lSS.push(_lSS.next); __lSS.start(); });
       _lSS.push(_pOnSuccess);
       _lSS.start();
@@ -827,7 +827,7 @@ var lTests =
     var lGetUsersOfInterest = function(_pTags, _pOnSuccess) // Find users who can see the first 5 of the specified tags (asynchronous).
     {
       var _lFirstTags = new Array(); _pTags.slice(0, 1).forEach(function(__pEl) { _lFirstTags.push("'" + __pEl["http://code.google.com/p/tagont/hasTagLabel"] + "'"); });
-      lMvStore.mvsql(
+      lMvStore.q(
         // TODO: Review this query once bug #202 is sorted out.
         //"SELECT * FROM \"http://localhost/mv/class/testphotos1/user\" AS u JOIN \"http://localhost/mv/class/testphotos1/privilege\" AS p ON (u.\"http://xmlns.com/foaf/0.1/mbox\" = p.\"http://code.google.com/p/tagont/hasVisibility\") WHERE p.\"http://code.google.com/p/tagont/hasTagLabel\" IN (" + _lFirstTags + ");",
         //"SELECT * FROM \"http://localhost/mv/class/testphotos1/privilege\" AS p JOIN \"http://localhost/mv/class/testphotos1/user\" AS u ON (p.\"http://code.google.com/p/tagont/hasVisibility\" = u.\"http://xmlns.com/foaf/0.1/mbox\") WHERE p.\"http://code.google.com/p/tagont/hasTagLabel\" IN (" + _lFirstTags + ");",
@@ -846,7 +846,7 @@ var lTests =
       _lSS.push( // Check user privileges.
         function()
         {
-          lMvStore.mvsql(
+          lMvStore.q(
             "SELECT * FROM \"http://localhost/mv/class/testphotos1/privilege\" WHERE \"http://code.google.com/p/tagont/hasVisibility\"='" + _pUserName + "';",
             function(__pE, __pR)
             {
@@ -862,7 +862,7 @@ var lTests =
       _lSS.push( // Check group privileges.
         function()
         {
-          lMvStore.mvsql(
+          lMvStore.q(
             "SELECT * FROM \"http://localhost/mv/class/testphotos1/privilege\" AS p JOIN \"http://localhost/mv/class/testphotos1/user\"('" + _pUserName + "') AS u ON (p.\"http://code.google.com/p/tagont/hasVisibility\" = u.\"http://xmlns.com/foaf/0.1/member/adomain:Group\");",
             function(__pE, __pR)
             {
@@ -880,7 +880,7 @@ var lTests =
         function()
         {
           var __lTags = new Array(); Object.keys(_lTags).forEach(function(___pEl) { __lTags.push("'" + ___pEl + "'"); });
-          lMvStore.mvsql(
+          lMvStore.q(
             "SELECT * FROM \"http://localhost/mv/class/testphotos1/photo\" AS p JOIN \"http://localhost/mv/class/testphotos1/tagging\" AS t ON (p.\"http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#hasHash\" = t.\"http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#hasHash\") WHERE t.\"http://code.google.com/p/tagont/hasTagLabel\" IN (" + __lTags.join(',') + ");",
             function(__pE, __pR)
             {
@@ -901,22 +901,22 @@ var lTests =
     };
     var lClassesExist = false;
     var lOnSelectClasses = function(pError, pResponse) { console.log("substep " + lSS.curstep()); if (pError) console.log("\n*** ERROR: " + pError + "\n"); else { console.log("Result from step " + lSS.curstep() + ":" + JSON.stringify(pResponse)); lClassesExist = (pResponse && pResponse.length > 0); lSS.next(); } }
-    lSS.push(function() { console.log("Creating classes."); lMvStore.mvsql("SELECT * FROM mv:ClassOfClasses WHERE BEGINS(mv:classID, 'http://localhost/mv/class/testphotos1/');", lOnSelectClasses); });
-    lSS.push(function() { if (lClassesExist) lSS.next(); else lMvStore.mvsql("CREATE CLASS \"http://localhost/mv/class/testphotos1/photo\" AS SELECT * WHERE \"http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#hasHash\" IN :0 AND EXISTS(\"http://www.w3.org/2001/XMLSchema#date\") AND EXISTS(\"http://www.w3.org/2001/XMLSchema#time\") AND EXISTS(\"http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#fileUrl\") AND EXISTS (\"http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#fileName\");", lSS.simpleOnResponse); });
-    lSS.push(function() { if (lClassesExist) lSS.next(); else lMvStore.mvsql("CREATE CLASS \"http://localhost/mv/class/testphotos1/tag\" AS SELECT * WHERE \"http://code.google.com/p/tagont/hasTagLabel\" in :0 AND NOT EXISTS(\"http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#hasHash\") AND NOT EXISTS(\"http://code.google.com/p/tagont/hasVisibility\");", lSS.simpleOnResponse); });
-    lSS.push(function() { if (lClassesExist) lSS.next(); else lMvStore.mvsql("CREATE CLASS \"http://localhost/mv/class/testphotos1/tagging\" AS SELECT * WHERE EXISTS(\"http://code.google.com/p/tagont/hasTagLabel\") AND \"http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#hasHash\" in :0;", lSS.simpleOnResponse); });
-    lSS.push(function() { if (lClassesExist) lSS.next(); else lMvStore.mvsql("CREATE CLASS \"http://localhost/mv/class/testphotos1/user\" AS SELECT * WHERE \"http://xmlns.com/foaf/0.1/mbox\" in :0 AND EXISTS(\"http://www.w3.org/2002/01/p3prdfv1#user.login.password\") AND EXISTS(\"http://xmlns.com/foaf/0.1/member/adomain:Group\");", lSS.simpleOnResponse); });
-    lSS.push(function() { if (lClassesExist) lSS.next(); else lMvStore.mvsql("CREATE CLASS \"http://localhost/mv/class/testphotos1/privilege\" AS SELECT * WHERE \"http://code.google.com/p/tagont/hasTagLabel\" in :0 AND EXISTS(\"http://code.google.com/p/tagont/hasVisibility\");", lSS.simpleOnResponse); });
-    lSS.push(function() { console.log("Deleting old data."); lMvStore.mvsql("DELETE FROM \"http://localhost/mv/class/testphotos1/photo\";", lSS.simpleOnResponse); });
-    lSS.push(function() { lMvStore.mvsql("DELETE FROM \"http://localhost/mv/class/testphotos1/tag\";", lSS.simpleOnResponse); });
-    lSS.push(function() { lMvStore.mvsql("DELETE FROM \"http://localhost/mv/class/testphotos1/tagging\";", lSS.simpleOnResponse); });
-    lSS.push(function() { lMvStore.mvsql("DELETE FROM \"http://localhost/mv/class/testphotos1/user\";", lSS.simpleOnResponse); });
-    lSS.push(function() { lMvStore.mvsql("DELETE FROM \"http://localhost/mv/class/testphotos1/privilege\";", lSS.simpleOnResponse); });
+    lSS.push(function() { console.log("Creating classes."); lMvStore.q("SELECT * FROM mv:ClassOfClasses WHERE BEGINS(mv:classID, 'http://localhost/mv/class/testphotos1/');", lOnSelectClasses); });
+    lSS.push(function() { if (lClassesExist) lSS.next(); else lMvStore.q("CREATE CLASS \"http://localhost/mv/class/testphotos1/photo\" AS SELECT * WHERE \"http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#hasHash\" IN :0 AND EXISTS(\"http://www.w3.org/2001/XMLSchema#date\") AND EXISTS(\"http://www.w3.org/2001/XMLSchema#time\") AND EXISTS(\"http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#fileUrl\") AND EXISTS (\"http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#fileName\");", lSS.simpleOnResponse); });
+    lSS.push(function() { if (lClassesExist) lSS.next(); else lMvStore.q("CREATE CLASS \"http://localhost/mv/class/testphotos1/tag\" AS SELECT * WHERE \"http://code.google.com/p/tagont/hasTagLabel\" in :0 AND NOT EXISTS(\"http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#hasHash\") AND NOT EXISTS(\"http://code.google.com/p/tagont/hasVisibility\");", lSS.simpleOnResponse); });
+    lSS.push(function() { if (lClassesExist) lSS.next(); else lMvStore.q("CREATE CLASS \"http://localhost/mv/class/testphotos1/tagging\" AS SELECT * WHERE EXISTS(\"http://code.google.com/p/tagont/hasTagLabel\") AND \"http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#hasHash\" in :0;", lSS.simpleOnResponse); });
+    lSS.push(function() { if (lClassesExist) lSS.next(); else lMvStore.q("CREATE CLASS \"http://localhost/mv/class/testphotos1/user\" AS SELECT * WHERE \"http://xmlns.com/foaf/0.1/mbox\" in :0 AND EXISTS(\"http://www.w3.org/2002/01/p3prdfv1#user.login.password\") AND EXISTS(\"http://xmlns.com/foaf/0.1/member/adomain:Group\");", lSS.simpleOnResponse); });
+    lSS.push(function() { if (lClassesExist) lSS.next(); else lMvStore.q("CREATE CLASS \"http://localhost/mv/class/testphotos1/privilege\" AS SELECT * WHERE \"http://code.google.com/p/tagont/hasTagLabel\" in :0 AND EXISTS(\"http://code.google.com/p/tagont/hasVisibility\");", lSS.simpleOnResponse); });
+    lSS.push(function() { console.log("Deleting old data."); lMvStore.q("DELETE FROM \"http://localhost/mv/class/testphotos1/photo\";", lSS.simpleOnResponse); });
+    lSS.push(function() { lMvStore.q("DELETE FROM \"http://localhost/mv/class/testphotos1/tag\";", lSS.simpleOnResponse); });
+    lSS.push(function() { lMvStore.q("DELETE FROM \"http://localhost/mv/class/testphotos1/tagging\";", lSS.simpleOnResponse); });
+    lSS.push(function() { lMvStore.q("DELETE FROM \"http://localhost/mv/class/testphotos1/user\";", lSS.simpleOnResponse); });
+    lSS.push(function() { lMvStore.q("DELETE FROM \"http://localhost/mv/class/testphotos1/privilege\";", lSS.simpleOnResponse); });
     var lCntPhotos = 0;
     lSS.push(function() { console.log("Creating a few photos."); lStartTx(lSS); });
     lSS.push(function() { var _lFiles = lWalkDir("../../tests_kernel", ".cpp"); lCntPhotos = _lFiles.length; var _lSS = new InstrSeq(); _lFiles.forEach(function(__pEl) { _lSS.push(function() { lCreatePhoto(__pEl.dirname, __pEl.filename, _lSS.next); }); } ); _lSS.push(lSS.next); _lSS.start(); });
     lSS.push(function() { lCommitTx(lSS); });
-    lSS.push(function() { lMvStore.mvsqlCount("SELECT * FROM \"http://localhost/mv/class/testphotos1/photo\";", function(_pE, _pR) { lChkCount("photos", lCntPhotos, _pR); lSS.next(); }); });
+    lSS.push(function() { lMvStore.qCount("SELECT * FROM \"http://localhost/mv/class/testphotos1/photo\";", function(_pE, _pR) { lChkCount("photos", lCntPhotos, _pR); lSS.next(); }); });
     var lSomeTags = ["cousin_vinny", "uncle_buck", "sister_suffragette", "country", "city", "zoo", "mountain_2010", "ocean_2004", "Beijing_1999", "Montreal_2003", "LasVegas_2007", "Fred", "Alice", "sceneries", "artwork"];
     lSS.push(function() { console.log("Creating a few tags."); lStartTx(lSS); });
     lSomeTags.forEach(function(_pTag) { lSS.push(function() { lAssignTagRandomly(_pTag, lSS.next); }); });
@@ -927,13 +927,13 @@ var lTests =
     lUsers.forEach(function(_pUser) { lSS.push(function() { var _lGroup = lGroups[Math.floor(Math.random() * lGroups.length)]; lCreateUser(_pUser, _lGroup, lSS.next); }); });
     lSS.push(function() { lCommitTx(lSS); });
     var lActualUserCount = 0;
-    lSS.push(function() { lMvStore.mvsqlCount("SELECT * FROM \"http://localhost/mv/class/testphotos1/user\";", function(_pE, _pR) { lChkCount("users", lUsers.length, _pR); lSS.next(); }); });
+    lSS.push(function() { lMvStore.qCount("SELECT * FROM \"http://localhost/mv/class/testphotos1/user\";", function(_pE, _pR) { lChkCount("users", lUsers.length, _pR); lSS.next(); }); });
     lSS.push(function() { lSelectDistinctGroups(function(_pR) { lChkCount("groups", lGroups.length, _pR.length); lSS.next() }); });
     lSS.push(function() { lAssignGroupPrivilegesRandomly(lSS.next); });
     lSS.push(function() { lAssignUserPrivilegesRandomly(lSS.next); });
-    lSS.push(function() { lMvStore.mvsqlCount("SELECT * FROM \"http://localhost/mv/class/testphotos1/privilege\";", function(_pE, _pR) { console.log(_pR + " privileges assigned."); lSS.next(); }); });
+    lSS.push(function() { lMvStore.qCount("SELECT * FROM \"http://localhost/mv/class/testphotos1/privilege\";", function(_pE, _pR) { console.log(_pR + " privileges assigned."); lSS.next(); }); });
     var lTags = null, lUsersOfInterest = null;
-    lSS.push(function() { lMvStore.mvsql("SELECT * FROM \"http://localhost/mv/class/testphotos1/tag\";", function(_pE, _pR) { lTags = _pR.slice(0); lSS.next(); }); });
+    lSS.push(function() { lMvStore.q("SELECT * FROM \"http://localhost/mv/class/testphotos1/tag\";", function(_pE, _pR) { lTags = _pR.slice(0); lSS.next(); }); });
     lSS.push(function() { lGetUsersOfInterest(lTags, function(_pR){ lUsersOfInterest = _pR != null ? _pR.slice(0) : []; lSS.next(); }); });
     lSS.push(function() { var _lSS = new InstrSeq(); lUsersOfInterest.forEach(function(_pEl){ _lSS.push(function(){ lCountUserPhotos(_pEl[0]["http://code.google.com/p/tagont/hasVisibility"], _lSS.next); }); }); _lSS.push(lSS.next); _lSS.start(); });
     lSS.push(function() { console.log("done."); pOnSuccess(); });
@@ -943,7 +943,7 @@ var lTests =
   /**
    * Simple pseudo-application: graph db benchmark.
    *
-   * This example uses a mixture of pure mvsql (with json responses) and protobuf.
+   * This example uses a mixture of pure pathSQL (with json responses) and protobuf.
    * Some of the transaction-control statements are disabled if the connection is not using keep-alive.
    * The data model relies heavily on collections and references.
    *
@@ -1002,16 +1002,16 @@ var lTests =
       var _lCount = 0;
       return {punch:function() { _lCount++; if (_lCount == _pMaxCount) { _pCallback(); } else { lib_assert.ok(_lCount < _pMaxCount); } }};
     }
-    var lStartTx = function(_pSS) { if (lMvStore.keptAlive()) { lMvStore.mvsql("START TRANSACTION;", _pSS.next); } else { _pSS.next(); } }
-    var lCommitTx = function(_pSS) { if (lMvStore.keptAlive()) { lMvStore.mvsql("COMMIT;", _pSS.next); } else { _pSS.next(); } }
+    var lStartTx = function(_pSS) { if (lMvStore.keptAlive()) { lMvStore.q("START TRANSACTION;", _pSS.next); } else { _pSS.next(); } }
+    var lCommitTx = function(_pSS) { if (lMvStore.keptAlive()) { lMvStore.q("COMMIT;", _pSS.next); } else { _pSS.next(); } }
     var lWritePercent = function(_pPercent) { var _lV = _pPercent.toFixed(0); for (var _i = 0; _i < _lV.length + 1; _i++) { process.stdout.write("\b"); } process.stdout.write("" + _pPercent.toFixed(0) + "%"); }
 
     // Declaration of classes.
     var lClassesExist = false;
     var lOnSelectClasses = function(pError, pResponse) { console.log("substep " + lSS.curstep()); if (pError) console.log("\n*** ERROR: " + pError + "\n"); else { console.log("Result from step " + lSS.curstep() + ":" + JSON.stringify(pResponse)); lClassesExist = (pResponse && pResponse.length > 0); lSS.next(); } }
-    lSS.push(function() { console.log("Creating classes."); lMvStore.mvsql("SELECT * FROM mv:ClassOfClasses WHERE BEGINS(mv:classID, 'http://localhost/mv/class/benchgraph1/');", lOnSelectClasses); });
-    lSS.push(function() { if (lClassesExist) lSS.next(); else lMvStore.mvsql("CREATE CLASS \"http://localhost/mv/class/benchgraph1/orgid\" AS SELECT * WHERE \"http://localhost/mv/property/benchgraph1/orgid\" IN :0;", lSS.simpleOnResponse); });
-    lSS.push(function() { if (lClassesExist) lSS.next(); else lMvStore.mvsql("CREATE CLASS \"http://localhost/mv/class/benchgraph1/fid\" AS SELECT * WHERE \"http://localhost/mv/property/benchgraph1/fid\" in :0;", lSS.simpleOnResponse); });
+    lSS.push(function() { console.log("Creating classes."); lMvStore.q("SELECT * FROM mv:ClassOfClasses WHERE BEGINS(mv:classID, 'http://localhost/mv/class/benchgraph1/');", lOnSelectClasses); });
+    lSS.push(function() { if (lClassesExist) lSS.next(); else lMvStore.q("CREATE CLASS \"http://localhost/mv/class/benchgraph1/orgid\" AS SELECT * WHERE \"http://localhost/mv/property/benchgraph1/orgid\" IN :0;", lSS.simpleOnResponse); });
+    lSS.push(function() { if (lClassesExist) lSS.next(); else lMvStore.q("CREATE CLASS \"http://localhost/mv/class/benchgraph1/fid\" AS SELECT * WHERE \"http://localhost/mv/property/benchgraph1/fid\" in :0;", lSS.simpleOnResponse); });
 
     // Definition of input files.
     var lPeopleLineCount = 0, lProjectsLineCount = 0, lPhotosLineCount = 0;
@@ -1042,7 +1042,7 @@ var lTests =
             var _lM = _pLine.match(/^\(([0-9]+)\s+\'([A-Za-z\s]+)\'\s+\'([A-Za-z\s]+)\'\s+\'([A-Za-z\s]+)\'\s+\'([A-Za-z\-\s]+)\'\s+\'([A-Za-z\s]+)\'\s+\'([A-Z][0-9][A-Z]\s+[0-9][A-Z][0-9])\'/)
             if (undefined != _lM)
             {
-              lMvStore.mvsql(
+              lMvStore.q(
                 "INSERT (\"http://localhost/mv/property/benchgraph1/orgid\", \"http://localhost/mv/property/benchgraph1/firstname\", \"http://localhost/mv/property/benchgraph1/middlename\", \"http://localhost/mv/property/benchgraph1/lastname\", \"http://localhost/mv/property/benchgraph1/occupation\", \"http://localhost/mv/property/benchgraph1/country\", \"http://localhost/mv/property/benchgraph1/postalcode\") VALUES (" +
                 _lM[1] + ", '" +
                 _lM[2] + "', '" + _lM[3] + "', '" + _lM[4] + "', '" +
@@ -1075,7 +1075,7 @@ var lTests =
               var __lPID1;
               var __lSS = new InstrSeq();
               var __lHub = lParallelExecHub(__lRefs.length, __lSS.next);
-              __lSS.push(function() { lMvStore.mvsql("SELECT * FROM \"http://localhost/mv/class/benchgraph1/orgid\"(" + __lM[1] + ");", function(__pE, __pR) { __lPID1 = __pR[0].id; __lSS.next() }); });
+              __lSS.push(function() { lMvStore.q("SELECT * FROM \"http://localhost/mv/class/benchgraph1/orgid\"(" + __lM[1] + ");", function(__pE, __pR) { __lPID1 = __pR[0].id; __lSS.next() }); });
               __lSS.push(
                 function()
                 {
@@ -1086,8 +1086,8 @@ var lTests =
                       {
                         var ___lPID2;
                         var ___lSS = new InstrSeq();
-                        ___lSS.push(function() { lMvStore.mvsql("SELECT * FROM \"http://localhost/mv/class/benchgraph1/orgid\"(" + __lRefs[___iR] + ");", function(___pE, ___pR) { ___lPID2 = ___pR[0].id; ___lSS.next() }); });
-                        ___lSS.push(function() { lRelCount++; lMvStore.mvsql("UPDATE @" + __lPID1.toString(16) + " ADD \"http://localhost/mv/property/benchgraph1/friendof\"=@" + ___lPID2.toString(16) + ";", __lHub.punch); });
+                        ___lSS.push(function() { lMvStore.q("SELECT * FROM \"http://localhost/mv/class/benchgraph1/orgid\"(" + __lRefs[___iR] + ");", function(___pE, ___pR) { ___lPID2 = ___pR[0].id; ___lSS.next() }); });
+                        ___lSS.push(function() { lRelCount++; lMvStore.q("UPDATE @" + __lPID1.toString(16) + " ADD \"http://localhost/mv/property/benchgraph1/friendof\"=@" + ___lPID2.toString(16) + ";", __lHub.punch); });
                         ___lSS.start();
                       };
                     ___lIter();
@@ -1099,7 +1099,7 @@ var lTests =
                 {
                   for (var ___iR = 0; ___iR < __lRefs.length; ___iR++)
                   {
-                    lMvStore.mvsql("UPDATE @" + __lPID1.toString(16) + " ADD \"http://localhost/mv/property/benchgraph1/friendof\"=(SELECT * FROM \"http://localhost/mv/class/benchgraph1/orgid\"(" + __lRefs[___iR] + "));", __lHub.punch());
+                    lMvStore.q("UPDATE @" + __lPID1.toString(16) + " ADD \"http://localhost/mv/property/benchgraph1/friendof\"=(SELECT * FROM \"http://localhost/mv/class/benchgraph1/orgid\"(" + __lRefs[___iR] + "));", __lHub.punch());
                     lRelCount++;
                   }
                 });
@@ -1136,7 +1136,7 @@ var lTests =
                 function()
                 {
                   // Create the new project.
-                  lMvStore.mvsql(
+                  lMvStore.q(
                     "INSERT (\"http://localhost/mv/property/benchgraph1/fid\", \"http://localhost/mv/property/benchgraph1/fname\", \"http://localhost/mv/property/benchgraph1/access\") VALUES (" +
                     _lM[1] + ", '" +
                     _lM[2] + "', " +
@@ -1146,11 +1146,11 @@ var lTests =
               {
                 // If the new project is a root project, retrieve its root owner and link to it.
                 var __lPIDOwner;
-                __lSS.push(function() { lMvStore.mvsql("SELECT * FROM \"http://localhost/mv/class/benchgraph1/orgid\"(" + _lM[4] + ");", function(___pE, ___pR) { __lPIDOwner = ___pR[0].id; __lSS.next() }); });
+                __lSS.push(function() { lMvStore.q("SELECT * FROM \"http://localhost/mv/class/benchgraph1/orgid\"(" + _lM[4] + ");", function(___pE, ___pR) { __lPIDOwner = ___pR[0].id; __lSS.next() }); });
                 __lSS.push(
                   function()
                   {
-                    lMvStore.mvsql(
+                    lMvStore.q(
                       "UPDATE @" + __lPIDOwner.toString(16) + " SET \"http://localhost/mv/property/benchgraph1/rootproject\"=@" + __lPIDNewProject.toString(16) + ";", __lSS.next);
                   });
               }
@@ -1158,11 +1158,11 @@ var lTests =
               {
                 // If the new project is not a root project, link it to its parent.
                 var __lPIDParentProject;
-                __lSS.push(function() { lMvStore.mvsql("SELECT * FROM \"http://localhost/mv/class/benchgraph1/fid\"(" + _lM[3] + ");", function(___pE, ___pR) { __lPIDParentProject = ___pR[0].id; __lSS.next() }); });
+                __lSS.push(function() { lMvStore.q("SELECT * FROM \"http://localhost/mv/class/benchgraph1/fid\"(" + _lM[3] + ");", function(___pE, ___pR) { __lPIDParentProject = ___pR[0].id; __lSS.next() }); });
                 __lSS.push(
                   function()
                   {
-                    lMvStore.mvsql(
+                    lMvStore.q(
                       "UPDATE @" + __lPIDParentProject.toString(16) + " ADD \"http://localhost/mv/property/benchgraph1/children\"=@" + __lPIDNewProject.toString(16) + ";", __lSS.next);
                   });
               }
@@ -1198,16 +1198,16 @@ var lTests =
                 function()
                 {
                   // Create the new photo.
-                  lMvStore.mvsql(
+                  lMvStore.q(
                     "INSERT (\"http://localhost/mv/property/benchgraph1/fid\", \"http://localhost/mv/property/benchgraph1/pname\") VALUES (" +
                     _lM[1] + ", '" +
                     _lM[2] + "');", function(__pE, __pR) { __lPIDNewPhoto = __pR[0].id; __lSS.next() });
                 });
-              __lSS.push(function() { lMvStore.mvsql("SELECT * FROM \"http://localhost/mv/class/benchgraph1/fid\"(" + _lM[3] + ");", function(___pE, ___pR) { __lPIDParent = ___pR[0].id; __lSS.next() }); });
+              __lSS.push(function() { lMvStore.q("SELECT * FROM \"http://localhost/mv/class/benchgraph1/fid\"(" + _lM[3] + ");", function(___pE, ___pR) { __lPIDParent = ___pR[0].id; __lSS.next() }); });
               __lSS.push(
                 function()
                 {
-                  lMvStore.mvsql(
+                  lMvStore.q(
                     "UPDATE @" + __lPIDParent.toString(16) + " ADD \"http://localhost/mv/property/benchgraph1/children\"=@" + __lPIDNewPhoto.toString(16) + ";", __lSS.next);
                 });
               __lSS.push(function() { lWritePercent(100.0 * _pLineCount / lPhotosLineCount); __lSS.next(); });
@@ -1234,7 +1234,7 @@ var lTests =
     lSS.push(
       function()
       {
-        lMvStore.mvsqlProto(
+        lMvStore.qProto(
           "SELECT * FROM \"http://localhost/mv/class/benchgraph1/orgid\";",
           function(_pE, _pR)
           {
@@ -1271,7 +1271,7 @@ var lTests =
           function()
           {
             if (_mFound) { return; }
-            lMvStore.mvsqlProto(
+            lMvStore.qProto(
               "SELECT * FROM @" + _pPIN.pid.toString(16) + ".\"http://localhost/mv/property/benchgraph1/friendof\";",
               function(__pE, __pR)
               {
@@ -1325,7 +1325,7 @@ var lTests =
         __lSS.push(
           function()
           {
-            lMvStore.mvsqlProto(
+            lMvStore.qProto(
               "SELECT * FROM \"http://localhost/mv/class/benchgraph1/orgid\"(" + _mStartOrgid + ");",
               function(_pE, _pR)
               {
@@ -1387,7 +1387,7 @@ var lTests =
             _lSS.push(
               function()
               {
-                lMvStore.mvsql(
+                lMvStore.q(
                   "SELECT * FROM @" + _pP.pid.toString(16) + ".\"http://localhost/mv/property/benchgraph1/friendof\".\"http://localhost/mv/property/benchgraph1/friendof\"[@ <> @" + _pP.pid.toString(16) + "];",
                   function(__pE, __pR)
                   {
@@ -1413,7 +1413,7 @@ var lTests =
             _lSS.push(
               function()
               {
-                lMvStore.mvsql(
+                lMvStore.q(
                   "SELECT * FROM @" + _pP.pid.toString(16) + ".\"http://localhost/mv/property/benchgraph1/rootproject\".\"http://localhost/mv/property/benchgraph1/children\"{*}[exists(\"http://localhost/mv/property/benchgraph1/pname\")];",
                   function(__pE, __pR)
                   {
@@ -1439,7 +1439,7 @@ var lTests =
             _lSS.push(
               function()
               {
-                lMvStore.mvsql(
+                lMvStore.q(
                   "SELECT * FROM @" + _pP.pid.toString(16) + ".\"http://localhost/mv/property/benchgraph1/friendof\".\"http://localhost/mv/property/benchgraph1/rootproject\".\"http://localhost/mv/property/benchgraph1/children\"{*}[\"http://localhost/mv/property/benchgraph1/access\"=" + _pP.get("http://localhost/mv/property/benchgraph1/orgid") + "].\"http://localhost/mv/property/benchgraph1/children\"[exists(\"http://localhost/mv/property/benchgraph1/pname\")];",
                   function(__pE, __pR)
                   {
@@ -1455,6 +1455,43 @@ var lTests =
                 
     lSS.push(function() { console.log("done."); pOnSuccess(); });
     lSS.start();    
+  },
+  test_native_jsobject_save:function(pOnSuccess)
+  {
+    // Note:
+    //   At this stage, the saveNativeJS/loadNativeJS methods are only early prototypes for experimentation and demo.
+
+    // Define a bogus object.
+    function SomeObject() { this.mCounter = 1; this.mFriends = []; }
+    SomeObject.prototype.doSomething = function(p) { console.log("doSomething: " + p + " [" + this.mCounter + "]"); return this.mCounter++; }
+    SomeObject.prototype.addFriend = function(f) { this.mFriends.push(f); }
+    SomeObject.someStaticMethod = function(g, h) { console.log("someStaticMethod: " + g + "," + h); }
+
+    // Prepare some instances, with references.
+    lO1 = new SomeObject();
+    lO2 = new SomeObject();
+    lO2.otherFunc = function(something) { console.log("some other func: " + something); }
+    lO1.addFriend(lO2);
+    lO2.addFriend(lO1);
+    lO2.doSomething("bla");
+
+    // Proceed with the test: save lO1 and lO2 as full native js objects (with methods, prototypes etc.).
+    var lSS = new InstrSeq();
+    lSS.push(function() { lMvStore.saveNativeJS([lO1, lO2], lSS.next); });
+    lSS.push(function() { console.log("done."); pOnSuccess(); });
+    lSS.start();
+  },
+  test_native_jsobject_load:function(pOnSuccess)
+  {
+    // Note:
+    //   At this stage, the saveNativeJS/loadNativeJS methods are only early prototypes for experimentation and demo.
+
+    var lLoaded = [];
+    var lSS = new InstrSeq();
+    lSS.push(function() { lMvStore.loadNativeJS("SELECT * WHERE EXISTS(\"http://localhost/mv/property/1.0/js_member/mCounter\");", function(__pE, __pR) { for (var __iR = 0; undefined != __pR && __iR < __pR.length; __iR++) lLoaded.push(__pR[__iR]); lSS.next(); }); });
+    lSS.push(function() { console.log("*** obj0:\n" + JSON.stringify(lLoaded[0])); console.log("*** obj1:\n" + JSON.stringify(lLoaded[1])); lLoaded[0].doSomething("bla"); lSS.next(); });
+    lSS.push(function() { console.log("done."); pOnSuccess(); });
+    lSS.start();
   },
 };
 

@@ -9,6 +9,7 @@ var lib_http = require('http');
 var lib_https = require('https');
 var lib_url = require('url');
 var lib_events = require('events');
+var lib_crypto = require('crypto');
 var lib_protobuf = require('protobuf_for_node');
 var lib_assert = require('assert');
 
@@ -67,12 +68,25 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
   var EID_FIRST_ELEMENT = 4294967293;
   var RT_PIDS = 2;
   var RT_PINS = 0;
+  
+  // Other constants.
+  var PREFIX_JS_PROP = "http://localhost/mv/property/1.0/";
+  var PROP_JS_PROTOTYPE = PREFIX_JS_PROP + "js_prototype"; // Reference to the object's prototype pin (Review: Use Mark's special prop).
+  var PROP_JS_PROTOTYPE_HASH = PROP_JS_PROTOTYPE + "/hash"; // Prototype hash, used to identify distinct prototypes (in a global, deterministic way).
+  var PROP_JS_CONSTRUCTOR = PREFIX_JS_PROP + "js_constructor"; // Reference to the object's constructor pin (including 'static' methods).
+  var PROP_JS_CONSTRUCTOR_HASH = PROP_JS_CONSTRUCTOR + "/hash"; // Constructor hash, used to identify distinct constructors (in a global, deterministic way).
+  var PROP_JS_KIND = PREFIX_JS_PROP + "js_kind"; // Kind of the special js entity (constructor, prototype).
+  var PROP_JS_CONSTRUCTOR_NAME = PREFIX_JS_PROP + "js_constructor_name"; // Name of the constructor.
+  var PREFIX_JS_METHOD = PREFIX_JS_PROP + "js_method/"; // Prototype method prefix (for any property of a prototype defining a method).
+  var PREFIX_JS_STATICMETHOD = PREFIX_JS_PROP + "js_staticmethod/"; // Constructor-attached method prefix (for any property of the constructor defining a static method).
+  var PREFIX_JS_MEMBER = PREFIX_JS_PROP + "js_member/"; // Object member prefix (for any property defining an object's data member).
+  var PREFIX_JS_PARAMETERS = PREFIX_JS_PROP + "js_parameters/"; // Prefix for any property defining a function's parameters (collection of parameter names).
 
   /**
    * Private implementation helpers.
    */
 
-  // Generic http GET/POST to the mvstore server (supports both the pure mvsql path and the protobuf path).
+  // Generic http GET/POST to the mvstore server (supports both the pure pathSQL path and the protobuf path).
   function private_http(_pPath, _pBody, _pCallback)
   {
     var _lStream = _pCallback ? null : new lib_events.EventEmitter();
@@ -185,7 +199,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
     //   Ideally, for simplicity and consistency, I would not use private_longhttp at all, when running in keep-alive mode.
     //   However, currently mvstore treats each protobuf message as a topmost transaction, and aborts it
     //   if it doesn't commit by itself. For that reason, I'm still forced to go via private_longhttp
-    //   in keep-alive mode. That implies that plain (non-protobuf, non-mvsqlProto) mvsql requests can't be used
+    //   in keep-alive mode. That implies that plain (non-protobuf, non-pathsqlProto) pathSQL requests can't be used
     //   inside protobuf transactions.
     //
     // if (lKeepAlive.on) throw "private_longhttp is not expected to be used in a keep-alive connection";
@@ -244,7 +258,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
     //        incoming protobuf message)
     //     3. the current cheat: effectively use 2 connections in parallel
     //        (one for protobuf, and another one for non-protobuf; this means that
-    //        semantically the transactions in pure mvsql happen on a different plane
+    //        semantically the transactions in pure pathSQL happen on a different plane
     //        than the transactions in protobuf)
     if (lKeepAlive.on)
     {
@@ -512,7 +526,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
     if (0 == this.mUpdates.length)
       return;
     // console.log("private_TxCtx._serializePendingUpdates: serializing " + this.mUpdates.length + " updates");
-    var _lMsgSer = private_sendPB.serialize(this.mUpdates, this.mPropDict, this.mMustFlushOp);
+    var _lMsgSer = private_sendPB.serialize(private_sendPB.formatPB(this.mUpdates, this.mPropDict), this.mPropDict, this.mMustFlushOp);
     this.mSegments.push(_lMsgSer);
     this.mUpdatesSent = this.mUpdatesSent.concat(this.mUpdates);
     this.mUpdates = new Array();
@@ -981,21 +995,25 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
   // be sent to mvstore, send, and collect the resulting pids/eids, if any.
   function private_sendPB(_pPINs, _pCallback, _pDescr/*optional*/)
   {
+    var _lPD = new private_PropDict();
+    var _lMsgSer = private_sendPB.serialize(private_sendPB.formatPB(_pPINs, _lPD), _lPD, true);
+    return private_sendPB.finalize(_pPINs, _lMsgSer, _pCallback, _pDescr);
+  }
+  // Static helper to finalize the push to the server.
+  private_sendPB.finalize = function(pPINs, pMsgSer, pCallback, pDescr)
+  {
     var _lOnPBResult = function(__pE, __pR)
     {
-      if (__pE) { console.error("ERROR (private_sendPB._lOnPBResult): " + _pDescr + " failed: " + __pE); _pCallback(__pE, null); }
+      if (__pE) { console.error("ERROR (private_sendPB.finalize._lOnPBResult): " + pDescr + " failed: " + __pE); pCallback(__pE, null); }
       var __lParser = new private_PBResponseParser(__pR);
-      _pCallback(null, (_pPINs[0] instanceof private_PINUpdate) ? __lParser.finalizeUpdates(_pPINs) : __lParser.finalizeCreates(_pPINs));
+      pCallback(null, (pPINs[0] instanceof private_PINUpdate) ? __lParser.finalizeUpdates(pPINs) : __lParser.finalizeCreates(pPINs));
     }
-    var _lPD = new private_PropDict();
-    var _lMsgSer = private_sendPB.serialize(_pPINs, _lPD, true);
-    // dbg_savePBStr(_lMsgSer);
-    return private_http(lUri.pathname + "?i=proto&o=proto", _lMsgSer, _lOnPBResult);
+    return private_http(lUri.pathname + "?i=proto&o=proto", pMsgSer, _lOnPBResult);
   }
   // Static helper to serialize the descriptions/updates to a buffer in PB format, ready to be sent to mvstore.
   private_sendPB.formatPB = function(pPINs, pPropDict)
   {
-    if (!(pPINs instanceof Array)) throw "private_sendPB.serialize: pPINs must be an Array.";
+    if (!(pPINs instanceof Array)) throw "private_sendPB.formatPB: pPINs must be an Array.";
     // Note:
     //   pPINs is an array of PIN descriptions (js object literals) or of private_PINUpdate objects, looking like this:
     //
@@ -1008,7 +1026,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
     //       {"mUpdatesPropVal":{"tonton":303030},"mUpdatesExtras":{}},
     //       {"mUpdatesPropVal":{"tutu":5},"mUpdatesExtras":{"tutu":{"eid":4294967294,"op":"OP_ADD"}}}
     //     ]
-    // console.log("private_sendPB.serialize: pPINs=" + JSON.stringify(pPINs));
+    // console.log("private_sendPB.formatPB: pPINs=" + JSON.stringify(pPINs));
     var _lPins = [];
     for (var _iO = 0; _iO < pPINs.length; _iO++)
     {
@@ -1025,7 +1043,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
         _lPBValues = private_sendPB.createPBValues(pPropDict, pPINs[_iO]);
         _lPin.op = 'OP_INSERT';
       }
-      else throw "private_sendPB.serialize: pPINs must be an array of PIN descriptions or PIN updates.";
+      else throw "private_sendPB.formatPB: pPINs must be an array of PIN descriptions or PIN updates.";
       _lPin.values = _lPBValues; _lPin.nValues = _lPBValues.length;
       _lPin.rtt = (private_sendPB.isInsertingCollectionElements(_lPBValues) ? RT_PINS : RT_PIDS);
       _lPins.push(_lPin);
@@ -1035,11 +1053,9 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
   // Static helper to serialize the descriptions/updates to a buffer in PB format, ready to be sent to mvstore.
   private_sendPB.serialize = function(pPINs, pPropDict, pFlush)
   {
-    var _lPins = private_sendPB.formatPB(pPINs, pPropDict);
-    
     // REVIEW: Anything better than this gymnastic to control order?
     var _lMsg1 = {properties:pPropDict.getPBRepr()};
-    var _lMsg2 = {pins:_lPins};
+    var _lMsg2 = {pins:pPINs};
     var _lMsg3 = {};
     if (pFlush)
       _lMsg3.flush = [0];
@@ -1122,7 +1138,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
         else if (pValue instanceof Buffer) _lType = 'VT_BSTR';
         else if (pValue instanceof Url) _lType = 'VT_URL';
         else if (pValue instanceof Ref) _lType = pValue.getVT();
-        else { lib_assert.fail("private_sendPB.createPBValue: unhandled object type for value " + JSON.stringify(pValue)); }
+        else { lib_assert.fail("private_sendPB.createPBValue: unhandled object type for value " + JSON.stringify(pValue) + ":" + pValue.constructor); }
         break;
       }
     }
@@ -1280,12 +1296,12 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
     }
   }
 
-  // Protobuf load: deserialize new PIN objects from their protobuf representation (obtained from mvstore, e.g. via mvsqlProto).
+  // Protobuf load: deserialize new PIN objects from their protobuf representation (obtained from mvstore, e.g. via pathsqlProto).
   function private_receivePB() {}
-  private_receivePB.queryPINs = function(pMvSql, pCallback, pOptions)
+  private_receivePB.queryPINs = function(pPathSql, pCallback, pOptions)
   {
     var _lPD = new private_PropDict();
-    var _lUrl = appendUrlOptions(lUri.pathname + "?q=" + encodeURIComponent(pMvSql) + "&i=mvsql&o=proto", pOptions);
+    var _lUrl = appendUrlOptions(lUri.pathname + "?q=" + encodeURIComponent(pPathSql) + "&i=pathsql&o=proto", pOptions);
     return private_http(
       _lUrl, null,
       function(_pE, _pR)
@@ -1298,7 +1314,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
   {
     var _lPD = new private_PropDict();
     return private_http(
-      lUri.pathname + "?q=" + encodeURIComponent("SELECT * FROM @" + pPINAccessor().mPID.toString(16) + ";") + "&i=mvsql&o=proto", null,
+      lUri.pathname + "?q=" + encodeURIComponent("SELECT * FROM @" + pPINAccessor().mPID.toString(16) + ";") + "&i=pathsql&o=proto", null,
       function(_pE, _pR)
       {
         if (_pE) { pCallback(_pE, _pR); return; }
@@ -1410,19 +1426,19 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
    * Public interface.
    */
   
-  // Main, self-sufficient mvsql interface (json output).
+  // Main, self-sufficient pathSQL interface (json output).
   // TODO: Maybe integrate a more automatic means of handling pagination (i.e. always paginate).
-  function mvsql(_pMvSql, _pCallback, _pOptions)
+  function pathsql(_pPathSql, _pCallback, _pOptions)
   {
     if (private_TxCtx.inExplicitTx())
-      console.warn("WARNING (mvsql): mvsql calls can't participate to protobuf transactions at the moment; use mvsqlProto instead.");
-    return private_http(appendUrlOptions(lUri.pathname + "?q=" + encodeURIComponent(_pMvSql) + "&i=mvsql&o=json", _pOptions), null, _pCallback); 
+      console.warn("WARNING (pathsql): pathsql calls can't participate to protobuf transactions at the moment; use pathsqlProto instead.");
+    return private_http(appendUrlOptions(lUri.pathname + "?q=" + encodeURIComponent(_pPathSql) + "&i=pathsql&o=json", _pOptions), null, _pCallback); 
   }
-  function mvsqlCount(_pMvSql, _pCallback)
+  function pathsqlCount(_pPathSql, _pCallback)
   {
     if (private_TxCtx.inExplicitTx())
-      console.warn("WARNING (mvsqlCount): mvsqlCount calls can't participate to protobuf transactions at the moment; use mvsqlProto instead.");
-    return private_http(lUri.pathname + "?q=" + encodeURIComponent(_pMvSql) + "&i=mvsql&o=json&type=count", null, _pCallback); 
+      console.warn("WARNING (pathsqlCount): pathsqlCount calls can't participate to protobuf transactions at the moment; use pathsqlProto instead.");
+    return private_http(lUri.pathname + "?q=" + encodeURIComponent(_pPathSql) + "&i=pathsql&o=json&type=count", null, _pCallback); 
   }
 
   // Auxiliary protobuf enhancers.
@@ -1434,21 +1450,21 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
   //   Perf remains to be analyzed in detail (protobuf_for_node, object copies etc.).
   //   I like the notion of separate 'PIN' objects (*not* meant to be the base-class of
   //   application's object structure), just like in C++ and python (it's unambiguous what needs to be saved etc.).
-  function mvsqlProto(_pMvSql, _pCallback, _pOptions)
+  function pathsqlProto(_pPathSql, _pCallback, _pOptions)
   {
-    // Same as the 'mvsql' public service, except that here we go through protobuf, and we return PIN objects (see js class definition above)
+    // Same as the 'pathsql' public service, except that here we go through protobuf, and we return PIN objects (see js class definition above)
     // back to _pCallback (instead of json). Could be preferred for perf reasons, or to avoid loss of information,
     // or to work with PIN objects in an end-to-end manner, or to work within the context of a protobuf transaction.
 
     // Implicit transaction: don't bother with txctx or long http request.
     if (!private_TxCtx.inExplicitTx())
-      return private_receivePB.queryPINs(_pMvSql, _pCallback, _pOptions);
+      return private_receivePB.queryPINs(_pPathSql, _pCallback, _pOptions);
 
     // Within the context of an already running explicit transaction...
     var _lOpEnd = private_TxCtx.beginOp(private_TxCtx.makeHandler_onReceivePINs({txend:_pCallback}), {mustFlush:true});
     if (undefined != _lOpEnd)
     {
-      lTxCtx.recordAny({stmt:[{sq:_pMvSql, cid:lNextCid++, rtt:'RT_PINS', offset:0, limit:9999/*REVIEW*/}]});
+      lTxCtx.recordAny({stmt:[{sq:_pPathSql, cid:lNextCid++, rtt:'RT_PINS', offset:0, limit:9999/*REVIEW*/}]});
       _lOpEnd();
     }
     return null;
@@ -1495,6 +1511,372 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
     lTxCtx.rollbackTx(_pCallback);
   }
   // ---
+  // Other flavor of auxiliary protobuf enhancers: native js object persistence.
+  function saveNativeJS(_pObjects, _pCallback)
+  {
+    // Note:
+    //   We need to distinguish new objects from existing objects for a few reasons:
+    //   1. until new objects are saved once, there's no other way to prevent saving the same objects multiple times due to multiple references pointing to them
+    //   2. pathSQL/protobuf don't yet support persistence of graphs (with cycles) (but even if they did, we'd still have to go through this process for new objects)
+    var _lThis = this;
+    var _lPrototypes = []; // Set of unique prototypes involved (review; hash/set).
+    var _lConstructors = []; // Set of unique constructors (+ "static" methods) involved.
+    var _lToCreate = []; // Set of distinct instances that will need to be created at the end of the process.
+    var _lToUpdate = []; // Set of distinct instances that will need to be updated at the end of the process.
+    var _lPropDict = new private_PropDict(); // For protobuf serialization.
+    
+    // Define a bunch of internal services to deal with complexity.
+    this.updateOrCreate = // Determine whether __pO should go in _lToCreate or in _lToUpdate, if not already there.
+      function(__pO)
+      {
+        if ('pid' in __pO)
+          _lToUpdate[__pO.pid] = __pO;
+        else
+        {
+          var __lKnown = false;
+          for (var __iChk = 0; __iChk < _lToCreate.length && !__lKnown; __iChk++) // review: hash...
+            __lKnown = (_lToCreate[__iChk] === __pO);
+          if (!__lKnown)
+            _lToCreate.push(__pO);
+        }
+      };
+    this.formatPBMethod =
+      function(__pMethodName, __pMethodImpl, __pOut)
+      {
+        var __lMatch = __pMethodImpl.match(/function\s*(\w*)\s*\((.*)\)\s*\{(.*)\}/i);
+
+        // Constructor name, if relevant.
+        if (undefined != __lMatch[1] && __lMatch[1].length > 0)
+        {
+          _lPropDict.newPropName(PROP_JS_CONSTRUCTOR_NAME);
+          __pOut.push(private_sendPB.createPBValue(_lPropDict, PROP_JS_CONSTRUCTOR_NAME, __lMatch[1], null));
+        }
+
+        // Method body.
+        var __lPropName = (PREFIX_JS_METHOD + __pMethodName);
+        _lPropDict.newPropName(__lPropName);
+        __pOut.push(private_sendPB.createPBValue(_lPropDict, __lPropName, __lMatch[3], null));
+
+        // Method parameters.
+        __lPropName = (PREFIX_JS_PARAMETERS + __pMethodName);
+        _lPropDict.newPropName(__lPropName);
+        __pOut.push(private_sendPB.createPBValue(_lPropDict, __lPropName, __lMatch[2], null));
+      };
+    this.formatPB = // TODO (review): Try to reuse private_sendPB.formatPB... could attach a tmp persistence context to __pO for this...
+      function(__pO, __pUseProto)
+      {
+        // Prepare each property.
+        var __lPin = {};
+        var __lPBValues = [];
+        if (typeof(__pO) == "function")
+          { _lThis.formatPBMethod('constructor', "" + __pO, __lPBValues); }
+        for (var __iProp in __pO)
+        {
+          if (__iProp == 'pid') continue; // Review: Deal better with this.
+          if (__iProp == PROP_JS_PROTOTYPE_HASH && __pUseProto) continue; // Review: Deal better with this.
+          if (__iProp == PROP_JS_CONSTRUCTOR_HASH && __pUseProto) continue; // Review: Deal better with this.
+          if (__iProp == PROP_JS_KIND && __pUseProto) continue; // Review: Deal better with this.
+          var __lV = __pO[__iProp];
+          if (typeof(__lV) == "function") // Persist functions as str (later, as expr).
+          {
+            // Only persist object-specific functions, if a known prototype is involved.
+            if (__pUseProto)
+            {
+              var __lSkipFunc = false;
+              for (var __iPf in __pO.constructor.prototype)
+                if (__lV === __pO.constructor.prototype[__iPf]) { /*console.log("found known proto function: " + __iPf);*/ __lSkipFunc = true; break; }
+              if (__lSkipFunc)
+                continue;
+            }
+            _lThis.formatPBMethod(__iProp, "" + __lV, __lPBValues);
+            continue;
+          }
+          else if (typeof(__lV) == "object")
+          {
+            if ('pid' in __lV) // Persist references as mvstore references.
+              { __lV = new Ref(__lV.pid); }
+            else if (__lV instanceof Array) // TODO: Nicer recursion. // TODO: Deal with empty arrays.
+            {
+              var __lPropName = (PREFIX_JS_MEMBER + __iProp);
+              _lPropDict.newPropName(__lPropName);
+              var __lCollValues = []
+              for (var __iE = 0; __iE < __lV.length; __iE++)
+              {
+                var __lEV = __lV[__iE];
+                if (typeof(__lEV) == "object" && 'pid' in __lEV)
+                  { __lEV = new Ref(__lEV.pid); }
+                var __lPBEV = private_sendPB.createPBValue(_lPropDict, __lPropName, __lEV, null);
+                __lPBEV.eid = EID_LAST_ELEMENT; __lPBEV.op = 'OP_ADD';
+                __lCollValues.push(__lPBEV);
+              }
+              __lPBValues.push({type:'VT_ARRAY', property:_lPropDict.getID(__lPropName), varray:{l:__lCollValues.length, v:__lCollValues}, eid:EID_COLLECTION, op:'OP_SET'});
+              continue;
+            }
+          }
+          // Default: plain data member.
+          var __lPropName = (0 == __iProp.indexOf(PREFIX_JS_PROP)) ? __iProp : (PREFIX_JS_MEMBER + __iProp);
+          _lPropDict.newPropName(__lPropName);
+          var __lPBValue = private_sendPB.createPBValue(_lPropDict, __lPropName, __lV, null);
+          __lPBValues.push(__lPBValue);
+        }
+        
+        // Add properties for the prototype & constructor references.
+        if (__pUseProto)
+        {
+          var __lPBValue = private_sendPB.createPBValue(_lPropDict, PROP_JS_PROTOTYPE, new Ref(__pO.constructor.prototype.pid), null);
+          __lPBValues.push(__lPBValue);
+          __lPBValue = private_sendPB.createPBValue(_lPropDict, PROP_JS_CONSTRUCTOR, new Ref(__pO.constructor.pid), null);
+          __lPBValues.push(__lPBValue);
+        }
+        
+        // Wrap up & return.
+        // Note: Caller must set op='OP_INSERT'/'OP_UPDATE'...
+        __lPin.values = __lPBValues; __lPin.nValues = __lPBValues.length;
+        __lPin.rtt = RT_PIDS;
+        return __lPin;
+      }
+    this.walkRefs =
+      function(__pO, __pFunc, __pStack)
+      {
+        // Avoid infinite recursion in graphs.
+        for (var iS = 0; undefined != __pStack && iS < __pStack.length; iS++)
+          if (__pStack[iS] === __pO)
+            return;
+        var lStack = __pStack ? __pStack.concat([__pO]) : [__pO];
+        
+        // Walk each property of __pO.
+        for (var iProp in __pO)
+        {
+          var lValue = __pO[iProp];
+          switch (typeof(lValue))
+          {
+            // Skip all specific, known leaves.
+            case "boolean": case "number": case "string": case "function": break;
+            case "object":
+            {
+              // Some object types are known leaves.
+              if (lValue instanceof Date) {}
+              else if (lValue instanceof Buffer) {}
+              // Walk arrays recursively.
+              else if (lValue instanceof Array)
+              {
+                for (var iV = 0; iV < lValue.length; iV++)
+                  _lThis.walkRefs(lValue[iV], __pFunc, lStack);
+              }
+              // Apply __pFunc to generic object leaves, and walk them recursively.
+              // TODO: check a no-persistence marker.
+              else
+              {
+                __pFunc(lValue);
+                _lThis.walkRefs(lValue, __pFunc, lStack);
+              }
+              break;
+            }
+          }
+        }
+      };
+    this.saveSpecial = function(__pSpecialObjects, __pSpecialProp, __pCallback)
+    {
+      // Compute a unique key (sha1 of the actual code), for all the prototypes/constructors that don't already have a key (not yet persisted).
+      // Note: The purpose of this is to have a single instance of each distinct prototype/constructor, across the whole domain (including third-party components that may be introduced independently).
+      // Note: The justification to have special handling here (compared with generic objects) is that presumably the app developer would not expect to have to manage his prototypes/constructors via queries...
+      var lPropHash = (__pSpecialProp + "/hash");
+      var lToSave = [];
+      var lKeysToSave = [];
+      for (var iSpecial = 0; iSpecial < __pSpecialObjects.length; iSpecial++)
+      {
+        // If this proto/constr is already registered, nothing to do (review: assumed immutable?).
+        if ('pid' in __pSpecialObjects[iSpecial]) { continue; }
+        if (lPropHash in __pSpecialObjects[iSpecial]) { alert("Unexpected!"); continue; }
+        // Compute the proto/constr's hash (hash of all method names and implementations),
+        // and see if it exists elsewhere in the db (if it does, add the pid here).
+        var lSha = lib_crypto.createHash('sha1');
+        if (typeof(__pSpecialObjects[iSpecial]) == "function")
+          lSha.update("constructor:" + __pSpecialObjects[iSpecial]);
+        for (var iMethod in __pSpecialObjects[iSpecial])
+          lSha.update(iMethod + ":" + __pSpecialObjects[iSpecial][iMethod]);
+        var lKey = lSha.digest('hex');
+        __pSpecialObjects[iSpecial][PROP_JS_KIND] = __pSpecialProp;
+        __pSpecialObjects[iSpecial][lPropHash] = "" + lKey;
+        lToSave.push(__pSpecialObjects[iSpecial]);
+        lKeysToSave.push("'" + lKey + "'");
+      }
+
+      // Query to see if by any chance the unknown prototypes are already in the db.
+      // REVIEW: not 'from *' - have a class...
+      // REVIEW: probably use pathsqlProto instead, to be all proto (tx etc.)...
+      var lKeysToSaveStr = lKeysToSave.join(",");
+      pathsql(
+        "SELECT mv:pinID, \"" + lPropHash + "\" FROM * WHERE \"" + lPropHash + "\" IN (" + lKeysToSaveStr + ");",
+        function(___pE, ___pR)
+        {
+          // For all prototypes found, update our in-memory instance with the pid, and remove from lToSave.
+          // REVIEW: O(n*m)...
+          for (var iFound = 0; undefined != ___pR && iFound < ___pR.length; iFound++)
+          {
+            for (var iS = 0; iS < lToSave.length; iS++)
+            {
+              if (lToSave[iS][lPropHash] == ___pR[iFound][lPropHash])
+              {
+                lToSave[iS].pid = parseInt(___pR[iFound].id);
+                lToSave.splice(iS, 1);
+                break;
+              }
+            }
+          }
+
+          // For all remaining (unsaved) prototypes, save them, and update our in-memory instance with the pid.
+          if (lToSave.length > 0)
+          {
+            var lPBPins = [];
+            for (var iSave = 0; iSave < lToSave.length; iSave++)
+            {
+              var lPBPin = _lThis.formatPB(lToSave[iSave], false);
+              lPBPin.op = 'OP_INSERT';
+              lPBPins.push(lPBPin);
+            }
+            var lMsgSer = private_sendPB.serialize(lPBPins, _lPropDict, true);
+            var lOnSaved = function(___pE, ___pR) { for (var ___iP = 0; undefined != ___pR && ___iP < ___pR.length; ___iP++) { lToSave[___iP].pid = ___pR[___iP].pid; } __pCallback(); }
+            private_sendPB.finalize(lToSave, lMsgSer, lOnSaved, "saveSpecial");
+          }
+        });
+    }
+    this.savePrototypes = function(__pCallback) { this.saveSpecial(_lPrototypes, PROP_JS_PROTOTYPE, __pCallback); }
+    this.saveConstructors = function(__pCallback) { this.saveSpecial(_lConstructors, PROP_JS_CONSTRUCTOR, __pCallback); }
+    this.saveCreates = function(__pCallback)
+    {
+      // As an interim cheap&simple solution until Mark's protobuf impl deals with cycles,
+      // I'll pre-create all new objects empty, and then let the update path write everything;
+      // this way, all referenced objects will assuredly exist.
+      var lEmpty = [];
+      for (var iC = 0; iC < _lToCreate.length; iC++)
+        lEmpty.push({});
+      createPINs(
+        lEmpty,
+        function(___pE, ___pR)
+        {
+          for (var ___iR = 0; ___iR < ___pR.length; ___iR++)
+            _lToCreate[___iR].pid = ___pR[___iR].pid;
+          _lToUpdate = _lToUpdate.concat(_lToCreate);
+          __pCallback();
+        });
+    }
+    this.saveUpdates = function(__pCallback)
+    {
+      // TODO: Deal with deleted fields that may have been removed by the user...
+      // TODO: May want to adopt a more sturdy naming convention (maybe with a dynamic prefix also) to wrap native names (potentially very short, overlapping, etc.; at least don't run the chance to bother other apps/classes...)
+      var lPBPins = [];
+      for (var iU = 0; iU < _lToUpdate.length; iU++)
+      {
+        var lPBPin = _lThis.formatPB(_lToUpdate[iU], true);
+        lPBPin.id = {id:_lToUpdate[iU].pid, ident:0};
+        lPBPin.op = 'OP_UPDATE';
+        lPBPins.push(lPBPin);
+      }
+      var lMsgSer = private_sendPB.serialize(lPBPins, _lPropDict, true);
+      // console.log("saveUpdates: sending " + JSON.stringify(lMvStream.parse(lMsgSer)));
+      private_http(lUri.pathname + "?i=proto&o=proto", lMsgSer,
+        function(___pE, ___pR) { if (___pE) console.log("error: " + ___pE); /*else console.log("received:\n" + JSON.stringify(___pE));*/ __pCallback(); });
+    }
+
+    // Determine which objects must be created; gather all references (may point to objects not explicitly in _pObjects).
+    for (var iObj = 0; iObj < _pObjects.length; iObj++)
+    {
+      this.updateOrCreate(_pObjects[iObj]);
+      this.walkRefs(_pObjects[iObj], this.updateOrCreate);
+    }
+
+    // Collect all distinct constructors.
+    var _lAllObjects = _lToCreate.concat(_lToUpdate);
+    for (var iObj = 0; iObj < _lAllObjects.length; iObj++)
+    {
+      var lSkip = false;
+      for (var iConstr = 0; iConstr < _lConstructors.length && !lSkip; iConstr++)
+        { lSkip = (_lConstructors[iConstr] === _lAllObjects[iObj].constructor); }
+      if (!lSkip)
+        { _lConstructors.push(_pObjects[iObj].constructor); }
+    }
+
+    // Collect all distinct prototypes.
+    for (var iObj = 0; iObj < _lAllObjects.length; iObj++)
+    {
+      var lSkip = false;
+      for (var iProto = 0; iProto < _lPrototypes.length && !lSkip; iProto++)
+        { lSkip = (_lPrototypes[iProto] === _lAllObjects[iObj].constructor.prototype); }
+      if (!lSkip)
+        { _lPrototypes.push(_lAllObjects[iObj].constructor.prototype); }
+    }
+
+    // Save everything.
+    // TODO: add pb transaction around all this.
+    _lPropDict.newPropName(PROP_JS_PROTOTYPE);
+    _lPropDict.newPropName(PROP_JS_CONSTRUCTOR);
+    _lThis.savePrototypes(function() { _lThis.saveConstructors(function() { _lThis.saveCreates(function() { _lThis.saveUpdates(_pCallback); }); }); });
+  }
+  function loadNativeJS(_pPathSql, _pCallback)
+  {
+    // TODO:
+    // . use protobuf
+    // . memory and references management (recurse references, connect everything etc.)
+    // . batching (e.g. get all protos/constr at once)
+    var lObjProcessor =
+      function(__pObj, __pResult, __pSS)
+      {
+        var _lF =
+          function()
+          {
+            pathsql(
+              "SELECT * WHERE @ IN (@" + __pObj[PROP_JS_PROTOTYPE]["$ref"] + ",@" + __pObj[PROP_JS_CONSTRUCTOR]["$ref"] + ")",
+              function(___pE, ___pR)
+              {
+                if (___pE) { _pCallback(___pE, null); return; }
+
+                // Build the constructor&prototype.
+                var lConstr = new Function("", ___pR[1][PREFIX_JS_METHOD + 'constructor']);
+                lConstr.prototype = {};
+                lConstr.prototype.constructor = lConstr;
+                for (var ___iProp in ___pR[0])
+                {
+                  if (0 != ___iProp.indexOf(PREFIX_JS_METHOD)) continue;
+                  var ___lMethodName = ___iProp.substr(PREFIX_JS_METHOD.length);
+                  var ___lMethodImpl = ___pR[0][___iProp];
+                  var ___lMethodParams = ___pR[0][PREFIX_JS_PARAMETERS + ___lMethodName];
+                  lConstr.prototype[___lMethodName] = new Function(___lMethodParams, ___lMethodImpl);
+                }
+
+                // Create the new object and fill it with its values.
+                var lObj = new lConstr();
+                __pResult.push(lObj);
+                for (var ___iProp in __pObj)
+                {
+                  if (0 != ___iProp.indexOf(PREFIX_JS_MEMBER)) continue;
+                  var ___lMemberName = ___iProp.substr(PREFIX_JS_MEMBER.length);
+                  lObj[___lMemberName] = __pObj[___iProp];
+                }
+                
+                __pSS.next();
+              });
+          };
+        return _lF;
+      };
+    pathsql(
+      _pPathSql,
+      function(__pE, __pR)
+      {
+        if (__pE) { _pCallback(__pE, null); return; }
+        var _lResult = [];
+        var _lSS = new module.exports.instrSeq();
+        for (var __iP = 0; __iP < __pR.length; __iP++)
+        {
+          var __lP = __pR[__iP];
+          if (PROP_JS_PROTOTYPE in __lP)
+            _lSS.push(lObjProcessor(__lP, _lResult, _lSS));
+        }
+        _lSS.push(function() { _pCallback(null, _lResult); });
+        _lSS.start();
+      });
+  }
+  // ---
   function terminate()
   {
     if (lKeepAlive.on && undefined != lKeepAlive.client)
@@ -1503,20 +1885,24 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
       lKeepAlive.client = null;
     }
   }
-  //---
+
+  /**
+   * Publish the public interface.
+   */
   var lConnection =
   {
     rawGet:function(_pCallback) {private_http("", null, _pCallback);},
     keptAlive:function() {return lKeepAlive.on;},
-    mvsql: mvsql, mvsqlCount: mvsqlCount,
-    mvsqlProto:mvsqlProto, createPINs:createPINs,
+    q: pathsql, qCount: pathsqlCount,
+    qProto:pathsqlProto, createPINs:createPINs,
+    saveNativeJS:saveNativeJS, loadNativeJS:loadNativeJS, // WARNING: Only a proof of concept for the moment.
     startTx:startTx, commitTx:commitTx, rollbackTx:rollbackTx,
     makeUrl:function(_pString) {return new Url(_pString);},
-    makeRef:function(_pLocalPID, _pIdent, _pProperty, _pEid) {return new Ref(_pLocalPID, _pIdent, _pProperty, _pEid);}, 
+    makeRef:function(_pLocalPID, _pIdent, _pProperty, _pEid) {return new Ref(_pLocalPID, _pIdent, _pProperty, _pEid);},
     terminate:terminate,
   };
   return lConnection;
 }
 
 // TODO: add a guard to the public interface, to warn against attempting to do concurrent things in a connection
-// TODO: in keepalive mode, should better integrate pure mvsql transactions with startTx-commitTx (Ming's argument).
+// TODO: in keepalive mode, should better integrate pure pathSQL transactions with startTx-commitTx (Ming's argument).

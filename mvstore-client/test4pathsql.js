@@ -4,7 +4,7 @@ Copyright © 2004-2011 VMware, Inc. All rights reserved.
 
 **************************************************************************************/
 
-// This file executes the mvsql test suite (aka 'test4mvsql' aka *.sql).
+// This file executes the pathSQL test suite (aka 'test4pathsql' aka *.sql).
 
 // Resolve dependencies.
 var lib_mvstore = require('./lib/mvstore-client');
@@ -13,7 +13,7 @@ var lib_fs = require('fs');
 var lib_sys = require('sys');
 
 // Connect to the mvstore server.
-var lMvStore = lib_mvstore.createConnection("http://test4mvsql:@localhost:4560/db/", {keepalive:true});
+var lMvStore = lib_mvstore.createConnection("http://test4pathsql:@localhost:4560/db/", {keepalive:true});
 var InstrSeq = lib_mvstore.instrSeq;
 var DELAY_BETWEEN_OPS_IN_MS = 200;
 var STOP_AT_FIRST_ERROR = false;
@@ -52,7 +52,7 @@ function processSqlFile(pFileName, pFinalCallback, pMaxLineLen)
       console.log("running: " + _lFullStmt);
       if (undefined != _lFullStmt.match(/drop/i)) // Special request.
       {
-        var lMvS2 = lib_mvstore.createConnection("http://test4mvsql:@localhost:4560/drop/", {keepalive:false});
+        var lMvS2 = lib_mvstore.createConnection("http://test4pathsql:@localhost:4560/drop/", {keepalive:false});
         lMvS2.rawGet(function(_pE, _pR) { console.log("obtained: " + (undefined == _pE ? "ok" : _pE)); setTimeout(_pContinue, DELAY_BETWEEN_OPS_IN_MS);});
       }
       else if (undefined != _lFullStmt.match(/open/i)) // Nothing to do (store will auto-open on demand).
@@ -62,20 +62,9 @@ function processSqlFile(pFileName, pFinalCallback, pMaxLineLen)
         undefined != _lFullStmt.match(/explain/i) ||
         undefined != _lFullStmt.match(/prepare/i))
           { console.log("ignored"); _pContinue(); }
-      else if (undefined != _lFullStmt.match(/select\s*count/i)) // Count queries not yet supported with protobuf output.
-      {
-        lMvStore.mvsql(
-          _lFullStmt,
-          function(_pE, _pR)
-          {
-            console.log("obtained: " + ((undefined != _pE) ? "failure" : JSON.stringify(_pR)));
-            if (undefined != _pE && STOP_AT_FIRST_ERROR) { throw _pE; }
-            setTimeout(_pContinue, DELAY_BETWEEN_OPS_IN_MS);
-          });
-      }
       else // Standard request.
       {
-        lMvStore.mvsqlProto(
+        lMvStore.qProto(
           _lFullStmt,
           function(_pE, _pR)
           {
@@ -110,8 +99,8 @@ function processSqlFile(pFileName, pFinalCallback, pMaxLineLen)
 
 // Processing of all .sql files.
 var lSS = new InstrSeq();
-var lSqlFiles = walkDir("../../tests_kernel/mvsql", ".sql");
-lSS.push(function() { var _lSS = new InstrSeq(); lSqlFiles.forEach(function(_pEl) { _lSS.push(function() { processSqlFile(_pEl.dirname + "/" + _pEl.filename, _lSS.next); }); }); _lSS.push(lSS.next); _lSS.start(); });
-//lSS.push(function() { var _lF = lSqlFiles[4]; processSqlFile(_lF.dirname + "/" + _lF.filename, lSS.next); });
+var lSqlFiles = walkDir("../../test4mvsql/test", ".sql");
+//lSS.push(function() { var _lSS = new InstrSeq(); lSqlFiles.forEach(function(_pEl) { _lSS.push(function() { processSqlFile(_pEl.dirname + "/" + _pEl.filename, _lSS.next); }); }); _lSS.push(lSS.next); _lSS.start(); });
+lSS.push(function() { var _lF = lSqlFiles[4]; processSqlFile(_lF.dirname + "/" + _lF.filename, lSS.next); });
 lSS.push(function() { console.log("Done."); lMvStore.terminate(); });
 lSS.start();

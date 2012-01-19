@@ -40,7 +40,7 @@ var lTests =
     lSS.push(pOnSuccess);
     lSS.start();
   },
-  create_pins_mvsql:function(pOnSuccess)
+  create_pins_pathsql:function(pOnSuccess)
   {
     if (!lMvStore.keptAlive())
     {
@@ -55,7 +55,7 @@ var lTests =
           { console.log("ERROR: " + _pE); lSS.next(); return; }
         if (lNumPins++ >= NUM_PINS)
           { lSS.next(); return; }
-        lMvStore.mvsql("INSERT (perf01p:name, perf01p:code, perf01p:type) VALUES ('" + randomString(10) + "', '" + randomString(15) + "', 'mvsql');", lCreatePins_keepalive);
+        lMvStore.q("INSERT (perf01p:name, perf01p:code, perf01p:type) VALUES ('" + randomString(10) + "', '" + randomString(15) + "', 'pathsql');", lCreatePins_keepalive);
       }
     var lCreatePins_nokeepalive =
       function(_pE, _pR)
@@ -64,14 +64,14 @@ var lTests =
           { console.log("ERROR: " + _pE); lSS.next(); return; }
         if (lNumPins++ >= NUM_PINS)
           { lSS.next(); return; }
-        lMvStore.mvsql("INSERT (\"http://localhost/mv/property/perf01/name\", \"http://localhost/mv/property/perf01/code\", \"http://localhost/mv/property/perf01/type\") VALUES ('" + randomString(10) + "', '" + randomString(15) + "', 'mvsql');", lCreatePins_nokeepalive);
+        lMvStore.q("INSERT (\"http://localhost/mv/property/perf01/name\", \"http://localhost/mv/property/perf01/code\", \"http://localhost/mv/property/perf01/type\") VALUES ('" + randomString(10) + "', '" + randomString(15) + "', 'pathsql');", lCreatePins_nokeepalive);
       }
     if (lMvStore.keptAlive())
     {
-      lSS.push(function() { lMvStore.mvsql("SET PREFIX perf01p: 'http://localhost/mv/property/perf01/';", lSS.next); });
-      lSS.push(function() { lMvStore.mvsql("START TRANSACTION;", lSS.next); });
+      lSS.push(function() { lMvStore.q("SET PREFIX perf01p: 'http://localhost/mv/property/perf01/';", lSS.next); });
+      lSS.push(function() { lMvStore.q("START TRANSACTION;", lSS.next); });
       lSS.push(lCreatePins_keepalive);
-      lSS.push(function() { lMvStore.mvsql("COMMIT;", lSS.next); });
+      lSS.push(function() { lMvStore.q("COMMIT;", lSS.next); });
     }
     else
     {
