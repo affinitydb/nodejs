@@ -76,7 +76,7 @@ var lTests =
           lSS.next);
       });
     lSS.push(function() { lPINs[0].refresh(lSS.simpleOnResponse); }); // Could automate something like this, on transactions that sacrificed some immediate updates (e.g. new eids).
-    lSS.push(function() { lMvStore.q("SELECT * WHERE EXISTS(test_basic_protobuf__an_array);", lSS.simpleOnResponse); });       
+    lSS.push(function() { lMvStore.q("SELECT * WHERE EXISTS(test_basic_protobuf__an_array);", lSS.simpleOnResponse); });
     lSS.push(function() { console.log("done."); pOnSuccess(); });
     lSS.start();
   },
@@ -616,7 +616,7 @@ var lTests =
     lSS.push(function() { lMvStore.q("SET PREFIX myqnamep: 'http://localhost/mv/property/test_qnames/';", lSS.next); });
     var lClassesExist = false;
     var lOnSelectClasses = function(pError, pResponse) { console.log("substep " + lSS.curstep()); if (pError) console.log("\n*** ERROR: " + pError + "\n"); else { console.log("Result from step " + lSS.curstep() + ":" + JSON.stringify(pResponse)); lClassesExist = (pResponse && pResponse.length > 0); lSS.next(); } }
-    lSS.push(function() { lMvStore.q("SELECT * FROM mv:ClassOfClasses WHERE BEGINS(mv:classID, 'http://localhost/mv/class/test_qnames/');", lOnSelectClasses); });
+    lSS.push(function() { lMvStore.q("SELECT * FROM afy:ClassOfClasses WHERE BEGINS(afy:classID, 'http://localhost/mv/class/test_qnames/');", lOnSelectClasses); });
     lSS.push(function() { if (lClassesExist) lSS.next(); else lMvStore.q("CREATE CLASS myqnamec:pos AS SELECT * WHERE EXISTS(myqnamep:x) AND EXISTS(myqnamep:y);", lSS.simpleOnResponse); });
     lSS.push(function() { lMvStore.q("INSERT (myqnamep:x, myqnamep:y) VALUES (" + Math.random() + "," + Math.random() + ");", lSS.simpleOnResponse); });
     lSS.push(function() { lMvStore.qProto("SELECT * FROM myqnamec:pos;", function(_pE, _pR) { assertValidResult(_pR); for (var _iP = 0; _iP < _pR.length; _iP++) { console.log(JSON.stringify(_pR[_iP].toPropValDict())); } lSS.next(); }); });
@@ -834,7 +834,7 @@ var lTests =
         "SELECT * FROM \"http://localhost/mv/class/testphotos1/privilege\"(" + _lFirstTags.join(',') + ") AS p JOIN \"http://localhost/mv/class/testphotos1/user\" AS u ON (p.\"http://code.google.com/p/tagont/hasVisibility\" = u.\"http://xmlns.com/foaf/0.1/mbox\");",
         function(__pE, __pR)
         {
-          var __lUOINames = new Array(); if (__pR) { __pR.forEach(function(___pEl) { __lUOINames.push(___pEl[0]["http://code.google.com/p/tagont/hasVisibility"]); }); }
+          var __lUOINames = new Array(); if (__pR) { __pR.forEach(function(___pEl) { __lUOINames.push(___pEl["http://code.google.com/p/tagont/hasVisibility"]); }); }
           console.log("users that have one of " + _lFirstTags.join(',') + ": " + __lUOINames.join(','));
           _pOnSuccess(__pR);
         });
@@ -867,7 +867,7 @@ var lTests =
             function(__pE, __pR)
             {
               var __lExpectedTags = lInMemoryChk.getUserTags(_pUserName).sort();
-              __pR.forEach(function(___pEl){ _lTags[___pEl[0]["http://code.google.com/p/tagont/hasTagLabel"]] = 1; });
+              __pR.forEach(function(___pEl){ _lTags[___pEl["http://code.google.com/p/tagont/hasTagLabel"]] = 1; });
               var __lActualTags = Object.keys(_lTags).slice(0).sort();
               console.log("user " + _pUserName + " has tags " + __lActualTags.join(','));
               if (JSON.stringify(__lExpectedTags) != JSON.stringify(__lActualTags))
@@ -884,7 +884,7 @@ var lTests =
             "SELECT * FROM \"http://localhost/mv/class/testphotos1/photo\" AS p JOIN \"http://localhost/mv/class/testphotos1/tagging\" AS t ON (p.\"http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#hasHash\" = t.\"http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#hasHash\") WHERE t.\"http://code.google.com/p/tagont/hasTagLabel\" IN (" + __lTags.join(',') + ");",
             function(__pE, __pR)
             {
-              __pR.forEach(function(___pEl){ _lUniquePhotos[___pEl[0]["http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#hasHash"]] = 1; });
+              __pR.forEach(function(___pEl){ _lUniquePhotos[___pEl["http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#hasHash"]] = 1; });
               if (Object.keys(_lUniquePhotos).length != __pR.length)
                 console.log("non-unique: " + __pR.length + " unique: " + Object.keys(_lUniquePhotos).length);
               _lSS.next();
@@ -901,7 +901,7 @@ var lTests =
     };
     var lClassesExist = false;
     var lOnSelectClasses = function(pError, pResponse) { console.log("substep " + lSS.curstep()); if (pError) console.log("\n*** ERROR: " + pError + "\n"); else { console.log("Result from step " + lSS.curstep() + ":" + JSON.stringify(pResponse)); lClassesExist = (pResponse && pResponse.length > 0); lSS.next(); } }
-    lSS.push(function() { console.log("Creating classes."); lMvStore.q("SELECT * FROM mv:ClassOfClasses WHERE BEGINS(mv:classID, 'http://localhost/mv/class/testphotos1/');", lOnSelectClasses); });
+    lSS.push(function() { console.log("Creating classes."); lMvStore.q("SELECT * FROM afy:ClassOfClasses WHERE BEGINS(afy:classID, 'http://localhost/mv/class/testphotos1/');", lOnSelectClasses); });
     lSS.push(function() { if (lClassesExist) lSS.next(); else lMvStore.q("CREATE CLASS \"http://localhost/mv/class/testphotos1/photo\" AS SELECT * WHERE \"http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#hasHash\" IN :0 AND EXISTS(\"http://www.w3.org/2001/XMLSchema#date\") AND EXISTS(\"http://www.w3.org/2001/XMLSchema#time\") AND EXISTS(\"http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#fileUrl\") AND EXISTS (\"http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#fileName\");", lSS.simpleOnResponse); });
     lSS.push(function() { if (lClassesExist) lSS.next(); else lMvStore.q("CREATE CLASS \"http://localhost/mv/class/testphotos1/tag\" AS SELECT * WHERE \"http://code.google.com/p/tagont/hasTagLabel\" in :0 AND NOT EXISTS(\"http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#hasHash\") AND NOT EXISTS(\"http://code.google.com/p/tagont/hasVisibility\");", lSS.simpleOnResponse); });
     lSS.push(function() { if (lClassesExist) lSS.next(); else lMvStore.q("CREATE CLASS \"http://localhost/mv/class/testphotos1/tagging\" AS SELECT * WHERE EXISTS(\"http://code.google.com/p/tagont/hasTagLabel\") AND \"http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#hasHash\" in :0;", lSS.simpleOnResponse); });
@@ -914,7 +914,7 @@ var lTests =
     lSS.push(function() { lMvStore.q("DELETE FROM \"http://localhost/mv/class/testphotos1/privilege\";", lSS.simpleOnResponse); });
     var lCntPhotos = 0;
     lSS.push(function() { console.log("Creating a few photos."); lStartTx(lSS); });
-    lSS.push(function() { var _lFiles = lWalkDir("../../tests_kernel", ".cpp"); lCntPhotos = _lFiles.length; var _lSS = new InstrSeq(); _lFiles.forEach(function(__pEl) { _lSS.push(function() { lCreatePhoto(__pEl.dirname, __pEl.filename, _lSS.next); }); } ); _lSS.push(lSS.next); _lSS.start(); });
+    lSS.push(function() { var _lFiles = lWalkDir("../../tests", ".cpp"); lCntPhotos = _lFiles.length; var _lSS = new InstrSeq(); _lFiles.forEach(function(__pEl) { _lSS.push(function() { lCreatePhoto(__pEl.dirname, __pEl.filename, _lSS.next); }); } ); _lSS.push(lSS.next); _lSS.start(); });
     lSS.push(function() { lCommitTx(lSS); });
     lSS.push(function() { lMvStore.qCount("SELECT * FROM \"http://localhost/mv/class/testphotos1/photo\";", function(_pE, _pR) { lChkCount("photos", lCntPhotos, _pR); lSS.next(); }); });
     var lSomeTags = ["cousin_vinny", "uncle_buck", "sister_suffragette", "country", "city", "zoo", "mountain_2010", "ocean_2004", "Beijing_1999", "Montreal_2003", "LasVegas_2007", "Fred", "Alice", "sceneries", "artwork"];
@@ -935,7 +935,7 @@ var lTests =
     var lTags = null, lUsersOfInterest = null;
     lSS.push(function() { lMvStore.q("SELECT * FROM \"http://localhost/mv/class/testphotos1/tag\";", function(_pE, _pR) { lTags = _pR.slice(0); lSS.next(); }); });
     lSS.push(function() { lGetUsersOfInterest(lTags, function(_pR){ lUsersOfInterest = _pR != null ? _pR.slice(0) : []; lSS.next(); }); });
-    lSS.push(function() { var _lSS = new InstrSeq(); lUsersOfInterest.forEach(function(_pEl){ _lSS.push(function(){ lCountUserPhotos(_pEl[0]["http://code.google.com/p/tagont/hasVisibility"], _lSS.next); }); }); _lSS.push(lSS.next); _lSS.start(); });
+    lSS.push(function() { var _lSS = new InstrSeq(); lUsersOfInterest.forEach(function(_pEl){ _lSS.push(function(){ lCountUserPhotos(_pEl["http://code.google.com/p/tagont/hasVisibility"], _lSS.next); }); }); _lSS.push(lSS.next); _lSS.start(); });
     lSS.push(function() { console.log("done."); pOnSuccess(); });
     lSS.start();
   },
@@ -1009,7 +1009,7 @@ var lTests =
     // Declaration of classes.
     var lClassesExist = false;
     var lOnSelectClasses = function(pError, pResponse) { console.log("substep " + lSS.curstep()); if (pError) console.log("\n*** ERROR: " + pError + "\n"); else { console.log("Result from step " + lSS.curstep() + ":" + JSON.stringify(pResponse)); lClassesExist = (pResponse && pResponse.length > 0); lSS.next(); } }
-    lSS.push(function() { console.log("Creating classes."); lMvStore.q("SELECT * FROM mv:ClassOfClasses WHERE BEGINS(mv:classID, 'http://localhost/mv/class/benchgraph1/');", lOnSelectClasses); });
+    lSS.push(function() { console.log("Creating classes."); lMvStore.q("SELECT * FROM afy:ClassOfClasses WHERE BEGINS(afy:classID, 'http://localhost/mv/class/benchgraph1/');", lOnSelectClasses); });
     lSS.push(function() { if (lClassesExist) lSS.next(); else lMvStore.q("CREATE CLASS \"http://localhost/mv/class/benchgraph1/orgid\" AS SELECT * WHERE \"http://localhost/mv/property/benchgraph1/orgid\" IN :0;", lSS.simpleOnResponse); });
     lSS.push(function() { if (lClassesExist) lSS.next(); else lMvStore.q("CREATE CLASS \"http://localhost/mv/class/benchgraph1/fid\" AS SELECT * WHERE \"http://localhost/mv/property/benchgraph1/fid\" in :0;", lSS.simpleOnResponse); });
 

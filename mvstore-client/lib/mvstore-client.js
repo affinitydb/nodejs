@@ -66,8 +66,8 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
   var EID_COLLECTION = 4294967295;
   var EID_LAST_ELEMENT = 4294967294;
   var EID_FIRST_ELEMENT = 4294967293;
-  var RT_PIDS = 2;
-  var RT_PINS = 0;
+  var RT_PIDS = 3;
+  var RT_PINS = 1;
   
   // Other constants.
   var PREFIX_JS_PROP = "http://localhost/mv/property/1.0/";
@@ -1723,7 +1723,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
       // REVIEW: probably use pathsqlProto instead, to be all proto (tx etc.)...
       var lKeysToSaveStr = lKeysToSave.join(",");
       pathsql(
-        "SELECT mv:pinID, \"" + lPropHash + "\" FROM * WHERE \"" + lPropHash + "\" IN (" + lKeysToSaveStr + ");",
+        "SELECT afy:pinID, \"" + lPropHash + "\" FROM * WHERE \"" + lPropHash + "\" IN (" + lKeysToSaveStr + ");",
         function(___pE, ___pR)
         {
           // For all prototypes found, update our in-memory instance with the pid, and remove from lToSave.
