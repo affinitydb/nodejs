@@ -7,14 +7,14 @@ Copyright © 2004-2011 VMware, Inc. All rights reserved.
 // This file executes the pathSQL test suite (aka 'test4pathsql' aka *.sql).
 
 // Resolve dependencies.
-var lib_mvstore = require('./lib/mvstore-client');
+var lib_affinity = require('./lib/affinity-client');
 var lib_assert = require('assert');
 var lib_fs = require('fs');
 var lib_sys = require('sys');
 
-// Connect to the mvstore server.
-var lMvStore = lib_mvstore.createConnection("http://test4pathsql:@localhost:4560/db/", {keepalive:true});
-var InstrSeq = lib_mvstore.instrSeq;
+// Connect to the Affinity server.
+var lAffinity = lib_affinity.createConnection("http://test4pathsql:@localhost:4560/db/", {keepalive:true});
+var InstrSeq = lib_affinity.instrSeq;
 var DELAY_BETWEEN_OPS_IN_MS = 200;
 var STOP_AT_FIRST_ERROR = false;
 
@@ -52,8 +52,8 @@ function processSqlFile(pFileName, pFinalCallback, pMaxLineLen)
       console.log("running: " + _lFullStmt);
       if (undefined != _lFullStmt.match(/drop/i)) // Special request.
       {
-        var lMvS2 = lib_mvstore.createConnection("http://test4pathsql:@localhost:4560/drop/", {keepalive:false});
-        lMvS2.rawGet(function(_pE, _pR) { console.log("obtained: " + (undefined == _pE ? "ok" : _pE)); setTimeout(_pContinue, DELAY_BETWEEN_OPS_IN_MS);});
+        var lAfyS2 = lib_affinity.createConnection("http://test4pathsql:@localhost:4560/drop/", {keepalive:false});
+        lAfyS2.rawGet(function(_pE, _pR) { console.log("obtained: " + (undefined == _pE ? "ok" : _pE)); setTimeout(_pContinue, DELAY_BETWEEN_OPS_IN_MS);});
       }
       else if (undefined != _lFullStmt.match(/open/i)) // Nothing to do (store will auto-open on demand).
         { console.log("obtained: ok"); setTimeout(_pContinue, DELAY_BETWEEN_OPS_IN_MS); }
@@ -64,7 +64,7 @@ function processSqlFile(pFileName, pFinalCallback, pMaxLineLen)
           { console.log("ignored"); _pContinue(); }
       else // Standard request.
       {
-        lMvStore.qProto(
+        lAffinity.qProto(
           _lFullStmt,
           function(_pE, _pR)
           {
@@ -99,8 +99,8 @@ function processSqlFile(pFileName, pFinalCallback, pMaxLineLen)
 
 // Processing of all .sql files.
 var lSS = new InstrSeq();
-var lSqlFiles = walkDir("../../test4mvsql/test", ".sql");
+var lSqlFiles = walkDir("../../tests_kernel/mvsql", ".sql");
 //lSS.push(function() { var _lSS = new InstrSeq(); lSqlFiles.forEach(function(_pEl) { _lSS.push(function() { processSqlFile(_pEl.dirname + "/" + _pEl.filename, _lSS.next); }); }); _lSS.push(lSS.next); _lSS.start(); });
 lSS.push(function() { var _lF = lSqlFiles[4]; processSqlFile(_lF.dirname + "/" + _lF.filename, lSS.next); });
-lSS.push(function() { console.log("Done."); lMvStore.terminate(); });
+lSS.push(function() { console.log("Done."); lAffinity.terminate(); });
 lSS.start();

@@ -1,0 +1,14 @@
+{
+  "name": "affinity-client",
+  "description": "A simple client library for Affinity in node.js",
+  "tags": ["Affinity","http","database","nosql","nodejs"],
+  "version": "0.0.1",
+  "author": "Affinity team",
+  "repository": {
+    "type": "git",
+    "url": "http://github.com/affinitydb/nodejs.git"
+  },
+  "bugs": "http://github.com/affinitydb/nodejs/issues",
+  "engines": ["node >= 0.4.0"],
+  "main": "./lib/affinity-client.js"
+}

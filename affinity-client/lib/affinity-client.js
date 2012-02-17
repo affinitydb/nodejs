@@ -31,7 +31,7 @@ module.exports.instrSeq = function()
   }
 }
 
-// Connection to a mvStore server.
+// Connection to an Affinity server.
 // Notes:
 //   . The connection is 'single-threaded' in the sense that it can only handle
 //     one transaction (i.e. one long http request) at a time; 'multi-threading'
@@ -53,16 +53,16 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
   lUri.__proto__ = { host:'127.0.0.1:4560', port:4560, hostname:'127.0.0.1', pathname:"/db/" }; // Note: Assignment to __proto__ means that any member of lUri not explicitly defined will default to the members of this __proto__.
 
   // Protobuf config.
-  var lMvProtoSchema = new lib_protobuf.Schema(lib_fs.readFileSync('mvstore.desc'));
-  var lMvStream = lMvProtoSchema['MVStorePB.MVStream'];
+  var lAfyProtoSchema = new lib_protobuf.Schema(lib_fs.readFileSync('affinity.desc'));
+  var lAfyStream = lAfyProtoSchema['MVStorePB.MVStream'];
   var lTxCtx = null; // Represents the current txctx/long-http-request for this connection.
   var lNextCid = 1; // Next stmt id.
   var lKeepAlive = {on:(("keepalive" in pOptions) && pOptions.keepalive), client:null}
 
   // Protobuf constants.
   // Note: The unofficial trick of using enums as constants is simply not available in this protobuf implementation.
-  var MV_FIRST_PROPID = 255/*SP_MAX*/ + 1;
-  var MV_TIME_OFFSET = (new Date(1970,1,1).valueOf() - new Date(1601,1,1).valueOf()) * 1000;
+  var AFY_FIRST_PROPID = 255/*SP_MAX*/ + 1;
+  var AFY_TIME_OFFSET = (new Date(1970,1,1).valueOf() - new Date(1601,1,1).valueOf()) * 1000;
   var EID_COLLECTION = 4294967295;
   var EID_LAST_ELEMENT = 4294967294;
   var EID_FIRST_ELEMENT = 4294967293;
@@ -70,7 +70,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
   var RT_PINS = 1;
   
   // Other constants.
-  var PREFIX_JS_PROP = "http://localhost/mv/property/1.0/";
+  var PREFIX_JS_PROP = "http://localhost/afy/property/1.0/";
   var PROP_JS_PROTOTYPE = PREFIX_JS_PROP + "js_prototype"; // Reference to the object's prototype pin (Review: Use Mark's special prop).
   var PROP_JS_PROTOTYPE_HASH = PROP_JS_PROTOTYPE + "/hash"; // Prototype hash, used to identify distinct prototypes (in a global, deterministic way).
   var PROP_JS_CONSTRUCTOR = PREFIX_JS_PROP + "js_constructor"; // Reference to the object's constructor pin (including 'static' methods).
@@ -86,7 +86,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
    * Private implementation helpers.
    */
 
-  // Generic http GET/POST to the mvstore server (supports both the pure pathSQL path and the protobuf path).
+  // Generic http GET/POST to the Affinity server (supports both the pure pathSQL path and the protobuf path).
   function private_http(_pPath, _pBody, _pCallback)
   {
     var _lStream = _pCallback ? null : new lib_events.EventEmitter();
@@ -197,7 +197,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
     //
     // Note:
     //   Ideally, for simplicity and consistency, I would not use private_longhttp at all, when running in keep-alive mode.
-    //   However, currently mvstore treats each protobuf message as a topmost transaction, and aborts it
+    //   However, currently Affinity treats each protobuf message as a topmost transaction, and aborts it
     //   if it doesn't commit by itself. For that reason, I'm still forced to go via private_longhttp
     //   in keep-alive mode. That implies that plain (non-protobuf, non-pathsqlProto) pathSQL requests can't be used
     //   inside protobuf transactions.
@@ -230,7 +230,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
             _lThis.mResponse = new Buffer(___lChunkLen);
             _lThis.mResponse.write(___pChunk, 0, "binary");
             // dbg_savePBStr(_lThis.mResponse);
-            // console.log("private_longhttp._lOnResponse: received " + JSON.stringify(lMvStream.parse(_lThis.mResponse)));
+            // console.log("private_longhttp._lOnResponse: received " + JSON.stringify(lAfyStream.parse(_lThis.mResponse)));
             if (_lThis.mEnded)
             {
               // console.log("private_longhttp._lOnResponse: ended the request");
@@ -307,7 +307,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
     }
   }
 
-  // Helper for options supported by the mvserver on the url.
+  // Helper for options supported by the Affinity server on the url.
   function appendUrlOptions(_pUrl, _pOptions)
   {
     var _lUrl = _pUrl;
@@ -346,14 +346,14 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
   {
     console.log(new Error().stack);
   }
-  function dbg_savePBStr(_pMsgStr) // Similar to mvstore.py.
+  function dbg_savePBStr(_pMsgStr) // Similar to affinity.py.
   {
     _lF = lib_fs.openSync("/tmp/myproto.bin", "w+");
     lib_fs.writeSync(_lF, _pMsgStr, 0, _pMsgStr.length, 0);
     lib_fs.close(_lF);
   }
 
-  // Protobuf: transaction context (similar to mvstore.py).
+  // Protobuf: transaction context (similar to affinity.py).
   function private_TxCtx()
   {
     this.mLabels = new Array(); // Optional labels for this transaction stack (to help debugging etc.); also keeps track of nested transactions.
@@ -390,7 +390,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
     //     1. the atomic operation itself (one step of a transaction),
     //     2. the notion of implicit transaction,
     //     3. the fact that operations may require an immediate
-    //        roundtrip to mvstore, to obtain store-generated ids,
+    //        roundtrip to Affinity, to obtain store-generated ids,
     //     4. the response parsing bound to an operation, if any, and
     //     5. the need to effect this parsing immediately,
     //        in the context of a longer transaction (the fate of future
@@ -399,7 +399,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
     //   . pOptions.mustFlush is just a means of centralizing and controlling
     //     the use of this protobuf feature, in a way consistent with
     //     the ability to parse the results (with pResultHandler).
-    //   . pResultHandler is responsible to handle the results returned by mvstore
+    //   . pResultHandler is responsible to handle the results returned by Affinity
     //     for this operation (i.e. parse, extract new ids etc.).
     //   . When pOptions.mustFlush is true, a pResultHandler must be specified (even for operations that
     //     generate no interesting response), because this handler also serves
@@ -492,25 +492,25 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
     {
       for (var _iO = 0; _iO < pStreamObj.length; _iO++)
       {
-        var _lMsgSer = lMvStream.serialize(pStreamObj[_iO]);
+        var _lMsgSer = lAfyStream.serialize(pStreamObj[_iO]);
         this.mSegments.push(_lMsgSer);
       }
     }
     else
     {
-      var _lMsgSer = lMvStream.serialize(pStreamObj);
+      var _lMsgSer = lAfyStream.serialize(pStreamObj);
       this.mSegments.push(_lMsgSer);
     }
     
     if (this.mMustFlushOp)
-      { this.mSegments.push(lMvStream.serialize({flush:[0]})); }
+      { this.mSegments.push(lAfyStream.serialize({flush:[0]})); }
   }
   private_TxCtx.prototype.startTx = function(pTxLabel/*optional*/)
   {
     // Push a label for this transaction (for debugging and to track nested transactions).
     this._pushTxLabel(pTxLabel);
     // Serialize a TX_START protobuf segment.
-    var _lMsgSer = lMvStream.serialize({txop:['TX_START']});
+    var _lMsgSer = lAfyStream.serialize({txop:['TX_START']});
     this.mSegments.push(_lMsgSer);
   }
   private_TxCtx.prototype.commitTx = function(pCallback)
@@ -541,7 +541,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
     //   If none of the segments contains a flush request, _pushData can freeze, as there would be no response from the server.
     //   We could monitor this situation, or even force a flush here. From a debugging point of view, the flush is immediately
     //   visible with the trace produced a few lines below.
-    // this.mSegments.push(lMvStream.serialize({flush:[0]}));
+    // this.mSegments.push(lAfyStream.serialize({flush:[0]}));
 
     // Concatenate all segments into one final buffer.
     var _iS, _lLen = 0
@@ -551,7 +551,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
     var _lPos = 0;
     for (_iS = 0; _iS < this.mSegments.length; _lPos += this.mSegments[_iS].length, _iS++)
     {
-      // console.log("private_TxCtx._pushData: sending " + JSON.stringify(lMvStream.parse(this.mSegments[_iS])));
+      // console.log("private_TxCtx._pushData: sending " + JSON.stringify(lAfyStream.parse(this.mSegments[_iS])));
       this.mSegments[_iS].copy(_lSer, _lPos);
     }
 
@@ -590,7 +590,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
     // Serialize pTxop, if any (commit/rollback).
     if (undefined != pTxop)
     {
-      var _lMsgSer = lMvStream.serialize({txop:[pTxop], flush:[0]});
+      var _lMsgSer = lAfyStream.serialize({txop:[pTxop], flush:[0]});
       this.mMustFlushOp = true;
       this.mSegments.push(_lMsgSer);
     }
@@ -629,12 +629,12 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
     if (this.mCallbacks.length > 0)
     {
       var _lCallback = this.mCallbacks.pop(); // Note: When we invoke the callback it may itself queue up more callbacks, so it's important to pop it right away.
-      // console.log("private_TxCtx._doCallback: received e=" + JSON.stringify(pE) + " r=" + JSON.stringify(pR ? lMvStream.parse(pR) : null));
+      // console.log("private_TxCtx._doCallback: received e=" + JSON.stringify(pE) + " r=" + JSON.stringify(pR ? lAfyStream.parse(pR) : null));
       if (pE) { console.error("ERROR (private_TxCtx._doCallback): " + pE); _lCallback(pE, null, this); }
       else { _lCallback(pE, pR, this); }
       return;
     } 
-    lib_assert.fail("private_TxCtx._doCallback: uninitialized user callback; received e=" + JSON.stringify(pE) + " r=" + JSON.stringify(pR ? lMvStream.parse(pR) : null));
+    lib_assert.fail("private_TxCtx._doCallback: uninitialized user callback; received e=" + JSON.stringify(pE) + " r=" + JSON.stringify(pR ? lAfyStream.parse(pR) : null));
   }
   private_TxCtx.prototype._getRelevantUpdates = function()
   {
@@ -646,7 +646,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
   }
 
   // Protobuf: Collection accessor object, mimicking the Array interface, and representing collections conveniently.
-  // Note: Similar to mvstore.py's PIN.Collection, except that here it's a pure interface, instantiated in a transient fashion (upon PIN.get('prop'))...
+  // Note: Similar to affinity.py's PIN.Collection, except that here it's a pure interface, instantiated in a transient fashion (upon PIN.get('prop'))...
   // Note: _pPINAccessor is a function returning a {mPID:..., mPropVals:..., mExtras:...} object pointing to a in-memory PIN's internal details.
   function Collection(_pPINAccessor, _pPropName)
   {
@@ -658,7 +658,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
     this.length = _mUpdateLength();
     this.push = function(pNewValue, pCallbackObj/*optional*/)
     {
-      // Setup async handling of the pushData to mvstore (required to obtain resulting eid).
+      // Setup async handling of the pushData to Affinity (required to obtain resulting eid).
       // Note:
       //   Logically, we should always flush here, since a new eid will be produced.
       //   But for flexibility, we interpret the absence of pCallbackObj as a willingness to forfeit the eid update.
@@ -683,7 +683,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
     }
     this.pop = function(pCallbackObj/*optional*/)
     {
-      // Setup async handling of the pushData to mvstore (required in the case of an implicit transaction).
+      // Setup async handling of the pushData to Affinity (required in the case of an implicit transaction).
       if (!private_TxCtx.isTxCbObj(pCallbackObj) && !private_TxCtx.inExplicitTx()) { lib_assert.fail("Collection.pop: invalid pCallbackObj"); return null; }
       var _lOpEnd = private_TxCtx.beginOp(private_TxCtx.makeHandler_passthrough(pCallbackObj), {mustFlush:false});
       if (undefined == _lOpEnd) { return null; }
@@ -703,7 +703,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
     }
     this.shift = function(pCallbackObj/*optional*/)
     {
-      // Setup async handling of the pushData to mvstore (required in the case of an implicit transaction).
+      // Setup async handling of the pushData to Affinity (required in the case of an implicit transaction).
       var _lDefaultRet = _mPINAccessor().mPropVals[_mPropName].length > 0 ? _mPINAccessor().mPropVals[_mPropName].length[0] : null;
       if (!private_TxCtx.isTxCbObj(pCallbackObj) && !private_TxCtx.inExplicitTx()) { lib_assert.fail("Collection.shift: invalid pCallbackObj"); return _lDefaultRet; }
       var _lOpEnd = private_TxCtx.beginOp(private_TxCtx.makeHandler_passthrough(pCallbackObj), {mustFlush:false});
@@ -729,7 +729,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
       var _lArgLen = arguments.length;
       var _lLastArg = arguments[_lArgLen - 1];
       if (private_TxCtx.isTxCbObj(_lLastArg)) { _lCallbackObj = _lLastArg; _lArgLen -= 1; }
-      // Setup async handling of the pushData to mvstore (required to obtain new resulting eids).
+      // Setup async handling of the pushData to Affinity (required to obtain new resulting eids).
       // Note: See the note in 'Collection.push'.
       var _lMustFlush = (undefined != _lCallbackObj);
       if (!_lMustFlush && !private_TxCtx.inExplicitTx()) { lib_assert.fail("Collection.unshift: invalid pCallbackObj"); return _lThis.length; }
@@ -830,7 +830,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
       var _lArgLen = arguments.length;
       var _lLastArg = arguments[_lArgLen - 1];
       if (private_TxCtx.isTxCbObj(_lLastArg)) { _lCallbackObj = _lLastArg; _lArgLen -= 1; }
-      // Setup async handling of the pushData to mvstore (required to obtain new resulting eids).
+      // Setup async handling of the pushData to Affinity (required to obtain new resulting eids).
       // Note: See the note in 'Collection.push'.
       // Note: We could be more selective here (in cases where no new eid is actually expected).
       var _lMustFlush = (undefined != _lCallbackObj);
@@ -886,10 +886,10 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
   // Protobuf: PIN representation.
   // Provides 'set' and 'get' methods to the client (plus the Collection overrides), to enforce
   // the recording of PIN updates upon modification. Stores data privately, in an intermediate form
-  // (somewhere between the natural java representation and mvstore.proto's form). This is required
-  // in order to give normal access to named properties; the mvstore.proto format also contains many
+  // (somewhere between the natural java representation and affinity.proto's form). This is required
+  // in order to give normal access to named properties; the affinity.proto format also contains many
   // fields that are circumstantial and that don't deserve being cached (e.g. property, op, nValues, rtt, ...).
-  // The internal format is very close to mvstore.py's.
+  // The internal format is very close to affinity.py's.
   // Note: The constructor expects an array of 3 elements: [PID, propvals, extras].
   function PIN(_pArgs)
   {
@@ -902,7 +902,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
     this.refresh = function(pCallback) { return private_receivePB.refreshPIN(_lAccessor, pCallback); }
     this.set = function(pPropName, pPropValue, pCallbackObj)
     {
-      // Setup async handling of the pushData to mvstore (required to obtain new resulting eids).
+      // Setup async handling of the pushData to Affinity (required to obtain new resulting eids).
       // Note: See the note in 'Collection.push'.
       var _lMustFlush = (pPropValue instanceof Array) || private_TxCtx.isTxCbObj(pCallbackObj);
       if (!_lMustFlush && !private_TxCtx.inExplicitTx()) { lib_assert.fail("PIN.set: invalid pCallbackObj"); return; }
@@ -961,7 +961,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
   // Protobuf: PIN-update representation.
   // Note:
   //   Internal only (never handed out to the client); follows the PIN convention (propvals, extras), but also keeps
-  //   a privileged back-pointer accessor to the modified in-memory PIN, to be able to update it upon mvstore completion (e.g. eids etc.).
+  //   a privileged back-pointer accessor to the modified in-memory PIN, to be able to update it upon Affinity completion (e.g. eids etc.).
   function private_PINUpdate(_pPINAccessor, _pUpdatesPropVal, _pUpdatesExtras, _pExpectNewIDs)
   {
     this.mPINAccessor = _pPINAccessor;
@@ -978,7 +978,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
   // Protobuf: dictionary of {propname:propid}.
   function private_PropDict()
   {
-    this.mNextID = MV_FIRST_PROPID;
+    this.mNextID = AFY_FIRST_PROPID;
     this.mID2Name = {}
     this.mName2ID = {}
   }
@@ -992,7 +992,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
 
   // Protobuf save: convert either an array of descriptions of new PINs (js object literals), or an array of
   // private_PINUpdate-s, into their PB representation, serialize the result into a buffer ready to
-  // be sent to mvstore, send, and collect the resulting pids/eids, if any.
+  // be sent to Affinity, send, and collect the resulting pids/eids, if any.
   function private_sendPB(_pPINs, _pCallback, _pDescr/*optional*/)
   {
     var _lPD = new private_PropDict();
@@ -1010,7 +1010,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
     }
     return private_http(lUri.pathname + "?i=proto&o=proto", pMsgSer, _lOnPBResult);
   }
-  // Static helper to serialize the descriptions/updates to a buffer in PB format, ready to be sent to mvstore.
+  // Static helper to serialize the descriptions/updates to a buffer in PB format, ready to be sent to Affinity.
   private_sendPB.formatPB = function(pPINs, pPropDict)
   {
     if (!(pPINs instanceof Array)) throw "private_sendPB.formatPB: pPINs must be an Array.";
@@ -1050,7 +1050,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
     }
     return _lPins;
   }
-  // Static helper to serialize the descriptions/updates to a buffer in PB format, ready to be sent to mvstore.
+  // Static helper to serialize the descriptions/updates to a buffer in PB format, ready to be sent to Affinity.
   private_sendPB.serialize = function(pPINs, pPropDict, pFlush)
   {
     // REVIEW: Anything better than this gymnastic to control order?
@@ -1059,26 +1059,26 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
     var _lMsg3 = {};
     if (pFlush)
       _lMsg3.flush = [0];
-    var _lSer1 = lMvStream.serialize(_lMsg1);
-    var _lSer2 = lMvStream.serialize(_lMsg2);
-    var _lSer3 = lMvStream.serialize(_lMsg3);
+    var _lSer1 = lAfyStream.serialize(_lMsg1);
+    var _lSer2 = lAfyStream.serialize(_lMsg2);
+    var _lSer3 = lAfyStream.serialize(_lMsg3);
     var _lSer = new Buffer(_lSer1.length + _lSer2.length + _lSer3.length);
     _lSer1.copy(_lSer, 0);
     _lSer2.copy(_lSer, _lSer1.length);
     _lSer3.copy(_lSer, _lSer1.length + _lSer2.length);
     // Note:
-    //   _lSer is a binary protobuf message ready to be sent to mvstore; it may look like this:
+    //   _lSer is a binary protobuf message ready to be sent to Affinity; it may look like this:
     //   {
     //     "pins":[{"op":"OP_INSERT","nValues":4,"values":[{"type":"VT_STRING","property":256,"str":"whatever","op":"OP_SET","eid":4294967295},{"type":"VT_DOUBLE","property":257,"d":123,"op":"OP_SET","eid":4294967295},{"type":"VT_DATETIME","property":258,"datetime":12956768270237000,"op":"OP_SET","eid":4294967295},{"type":"VT_ARRAY","property":259,"varray":{"l":4,"v":[{"type":"VT_DOUBLE","property":259,"d":1,"op":"OP_ADD","eid":4294967294},{"type":"VT_DOUBLE","property":259,"d":2,"op":"OP_ADD","eid":4294967294},{"type":"VT_DOUBLE","property":259,"d":3,"op":"OP_ADD","eid":4294967294},{"type":"VT_DOUBLE","property":259,"d":4,"op":"OP_ADD","eid":4294967294}]},"op":"OP_SET","eid":4294967295}],"rtt":"RT_PIDS"}],
     //     "properties":[{"str":"toto","id":256},{"str":"tata","id":257},{"str":"titi","id":258},{"str":"tutu","id":259}],
     //     "flush":[0]
     //   }
-    // console.log("private_sendPB.serialize: returning " + JSON.stringify(lMvStream.parse(_lSer)));
+    // console.log("private_sendPB.serialize: returning " + JSON.stringify(lAfyStream.parse(_lSer)));
     return _lSer;
   }
   // Static helper to determine whether we need RT_PINS or only RT_PIDS.
-  // Note: Same logic as in mvstore.py.
-  // REVIEW: I don't think mvstore offers a better option at the moment, but this might be prohibitively expensive in some cases.
+  // Note: Same logic as in affinity.py.
+  // REVIEW: I don't think Affinity offers a better option at the moment, but this might be prohibitively expensive in some cases.
   private_sendPB.isInsertingCollectionElements = function(pPBValues)
   {
     for (var _iV = 0; _iV < pPBValues.length; _iV++)
@@ -1105,7 +1105,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
   // Static helper to convert a single propval into its corresponding PB value (MVStorePB.Value).
   private_sendPB.createPBValue = function(pPropDict, pKey, pValue, pExtra)
   {
-    // TODO: Go over python/mvstore.py::_valuePY2PB and make sure everything is coverered...
+    // TODO: Go over python/affinity.py::_valuePY2PB and make sure everything is coverered...
     // Note: The caller may override some of the resulting fields (e.g. type, eid), based on its knowledge of 'extras'.
     var _lPropID = pPropDict.getID(pKey);
     // If the value is a collection, proceed.
@@ -1181,7 +1181,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
       case 'VT_DECIMAL': _lResult.d = pValue; break; // ?
       case 'VT_URL': case 'VT_STRING': _lResult.str = pValue; break;
       case 'VT_BSTR': _lResult.bstr = pValue; break;
-      case 'VT_DATETIME': _lResult.datetime = pValue.valueOf() * 1000 + MV_TIME_OFFSET; break;
+      case 'VT_DATETIME': _lResult.datetime = pValue.valueOf() * 1000 + AFY_TIME_OFFSET; break;
       case 'VT_REFID': {var _lV = pValue.get(); _lResult.id = {id:_lV.id, ident:_lV.ident}; break;}
       case 'VT_REFIDPROP': {var _lV = pValue.get(); _lResult.ref = {id:{id:_lV.id, ident:_lV.ident}, property:pPropDict.newPropName(_lV.property)}; break;}
       case 'VT_REFIDELT': {var _lV = pValue.get(); _lResult.ref = {id:{id:_lV.id, ident:_lV.ident}, property:pPropDict.newPropName(_lV.property), eid:_lV.eid}; break;}
@@ -1190,13 +1190,13 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
     return _lResult;
   }
 
-  // Protobuf save completion: parse mvstore's response after inserting/updating PINs, and update the in-memory PINs accordingly.
+  // Protobuf save completion: parse Affinity's response after inserting/updating PINs, and update the in-memory PINs accordingly.
   function private_PBResponseParser(_pPBResponse)
   {
-    this.mParsed = lMvStream.parse(_pPBResponse);
+    this.mParsed = lAfyStream.parse(_pPBResponse);
     // Note:
     //   this.mParsed is a javascript object resulting from protobuf_for_node's parsing of the raw protobuf buffer
-    //   returned by mvstore following an insert/update on existing PINs; it may represent only the updated parts of a PIN,
+    //   returned by Affinity following an insert/update on existing PINs; it may represent only the updated parts of a PIN,
     //   and could look like this:
     //   {
     //     "pins":[{"id":{"id":327681},"mode":2147483648,"nValues":1,"values":[{"type":"VT_DOUBLE","property":259,"d":5}]}],
@@ -1210,7 +1210,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
   private_PBResponseParser.prototype.finalizeCreates = function(pPINDescriptions)
   {
     if (this.mParsed.pins.length != pPINDescriptions.length)
-      console.warn("WARNING (private_PBResponseParser.finalizeCreates): " + pPINDescriptions.length + " PINs were created, but mvstore's response contained " + this.mParsed.pins.length + " PINs.");
+      console.warn("WARNING (private_PBResponseParser.finalizeCreates): " + pPINDescriptions.length + " PINs were created, but Affinity's response contained " + this.mParsed.pins.length + " PINs.");
     var _lPIDs = [];
     var _lExtras = [];
     this._walk(
@@ -1296,7 +1296,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
     }
   }
 
-  // Protobuf load: deserialize new PIN objects from their protobuf representation (obtained from mvstore, e.g. via pathsqlProto).
+  // Protobuf load: deserialize new PIN objects from their protobuf representation (obtained from Affinity, e.g. via pathsqlProto).
   function private_receivePB() {}
   private_receivePB.queryPINs = function(pPathSql, pCallback, pOptions)
   {
@@ -1325,10 +1325,10 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
   private_receivePB._createPINs = function(pPB, pPropDict)
   {
     var _lPINs = new Array();
-    var _lParsed = lMvStream.parse(pPB);
+    var _lParsed = lAfyStream.parse(pPB);
     // Note:
     //   _lParsed is a javascript object resulting from protobuf_for_node's parsing of the raw protobuf buffer
-    //   returned by mvstore; it should represent a whole PIN (i.e. all of its properties), and should look like this:
+    //   returned by Affinity; it should represent a whole PIN (i.e. all of its properties), and should look like this:
     //   { 
     //     "owner":{"str":"","id":0},
     //     "pins":[{"id":{"id":327681},"nValues":4,"values":[{"type":"VT_STRING","property":256,"str":"whatever"},{"type":"VT_DOUBLE","property":257,"d":123},{"type":"VT_DATETIME","property":258,"datetime":12956767059615000},{"type":"VT_ARRAY","property":259,"varray":{"l":4,"v":[{"type":"VT_DOUBLE","d":1,"eid":0},{"type":"VT_DOUBLE","d":2,"eid":1},{"type":"VT_DOUBLE","d":3,"eid":2},{"type":"VT_DOUBLE","d":4,"eid":3}]}}]}],
@@ -1347,12 +1347,12 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
   }
   private_receivePB._refreshPINs = function(pPB, pPropDict, pPINAccessors)
   {
-    var _lParsed = lMvStream.parse(pPB);
+    var _lParsed = lAfyStream.parse(pPB);
     // Note: See the note on _lParsed in private_receivePB._createPINs.
     // console.log("private_receivePB._refreshPINs: _lParsed=" + JSON.stringify(_lParsed));
     pPropDict.registerProps(_lParsed.properties);
     if (_lParsed.pins.length != pPINAccessors.length)
-      console.warn("WARNING (private_receivePB._refreshPINs): " + pPINAccessors.length + " PINs were refreshed, but mvstore's response contained " + _lParsed.pins.length + " PINs.");
+      console.warn("WARNING (private_receivePB._refreshPINs): " + pPINAccessors.length + " PINs were refreshed, but Affinity's response contained " + _lParsed.pins.length + " PINs.");
     for (var _iO = 0; _iO < _lParsed.pins.length; _iO++)
     {
       var _lPinAttrs = private_receivePB._extractPIN(_lParsed.pins[_iO], pPropDict);
@@ -1393,7 +1393,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
   }
   private_receivePB._extractValue = function(pPBValue, pPropDict)
   {
-    // TODO: Go over python/mvstore.py::_valuePB2PY and make sure everything is coverered...
+    // TODO: Go over python/affinity.py::_valuePB2PY and make sure everything is coverered...
     switch (pPBValue.type)
     {
       case 'VT_BOOL': return pPBValue.b;
@@ -1413,7 +1413,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
         pPBValue.varray.v.forEach(function(_pEl) { Array.prototype.push.call(_lValues, private_receivePB._extractValue(_pEl)); });
         return _lValues;
       }
-      case 'VT_DATETIME': return new Date((pPBValue.datetime - MV_TIME_OFFSET) / 1000);
+      case 'VT_DATETIME': return new Date((pPBValue.datetime - AFY_TIME_OFFSET) / 1000);
       case 'VT_REFID': return new Ref(pPBValue.id.id, pPBValue.id.ident);
       case 'VT_REFIDPROP': return new Ref(pPBValue.ref.id.id, pPBValue.ref.id.ident, pPropDict.getPropName(pPBValue.ref.property));
       case 'VT_REFIDELT': return new Ref(pPBValue.ref.id.id, pPBValue.ref.id.ident, pPropDict.getPropName(pPBValue.ref.property), pPBValue.ref.eid);
@@ -1609,7 +1609,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
           }
           else if (typeof(__lV) == "object")
           {
-            if ('pid' in __lV) // Persist references as mvstore references.
+            if ('pid' in __lV) // Persist references as Affinity references.
               { __lV = new Ref(__lV.pid); }
             else if (__lV instanceof Array) // TODO: Nicer recursion. // TODO: Deal with empty arrays.
             {
@@ -1790,7 +1790,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
         lPBPins.push(lPBPin);
       }
       var lMsgSer = private_sendPB.serialize(lPBPins, _lPropDict, true);
-      // console.log("saveUpdates: sending " + JSON.stringify(lMvStream.parse(lMsgSer)));
+      // console.log("saveUpdates: sending " + JSON.stringify(lAfyStream.parse(lMsgSer)));
       private_http(lUri.pathname + "?i=proto&o=proto", lMsgSer,
         function(___pE, ___pR) { if (___pE) console.log("error: " + ___pE); /*else console.log("received:\n" + JSON.stringify(___pE));*/ __pCallback(); });
     }

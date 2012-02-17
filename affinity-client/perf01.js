@@ -7,13 +7,13 @@ Copyright © 2004-2011 VMware, Inc. All rights reserved.
 // This file contains basic performance assessments.
 
 // Resolve dependencies.
-var lib_mvstore = require('./lib/mvstore-client');
+var lib_affinity = require('./lib/affinity-client');
 var lib_fs = require('fs');
 var lib_sys = require('sys');
 
-// Connect to the mvstore server.
-var lMvStore = lib_mvstore.createConnection("http://perf01:@localhost:4560/db/", {keepalive:true});
-var InstrSeq = lib_mvstore.instrSeq;
+// Connect to the Affinity server.
+var lAffinity = lib_affinity.createConnection("http://perf01:@localhost:4560/db/", {keepalive:true});
+var InstrSeq = lib_affinity.instrSeq;
 var NUM_PINS = 500;
 
 // Define a helper to produce random strings.
@@ -34,15 +34,15 @@ var lTests =
     // This is just to make sure that the first real perf test doesn't incur any artificial overhead
     // due to opening the store or whatever...
     var lSS = new InstrSeq();
-    lSS.push(function() { lMvStore.startTx(); lSS.next(); });
-    lSS.push(function() { lMvStore.createPINs([{"http://localhost/mv/property/perf01/startedAt":new Date()}], lSS.next); });
-    lSS.push(function() { lMvStore.commitTx(lSS.next); });
+    lSS.push(function() { lAffinity.startTx(); lSS.next(); });
+    lSS.push(function() { lAffinity.createPINs([{"http://localhost/afy/property/perf01/startedAt":new Date()}], lSS.next); });
+    lSS.push(function() { lAffinity.commitTx(lSS.next); });
     lSS.push(pOnSuccess);
     lSS.start();
   },
   create_pins_pathsql:function(pOnSuccess)
   {
-    if (!lMvStore.keptAlive())
+    if (!lAffinity.keptAlive())
     {
       console.log("warning: this test is designed primarily for keep-alive connection.");
     }
@@ -55,7 +55,7 @@ var lTests =
           { console.log("ERROR: " + _pE); lSS.next(); return; }
         if (lNumPins++ >= NUM_PINS)
           { lSS.next(); return; }
-        lMvStore.q("INSERT (perf01p:name, perf01p:code, perf01p:type) VALUES ('" + randomString(10) + "', '" + randomString(15) + "', 'pathsql');", lCreatePins_keepalive);
+        lAffinity.q("INSERT (perf01p:name, perf01p:code, perf01p:type) VALUES ('" + randomString(10) + "', '" + randomString(15) + "', 'pathsql');", lCreatePins_keepalive);
       }
     var lCreatePins_nokeepalive =
       function(_pE, _pR)
@@ -64,14 +64,14 @@ var lTests =
           { console.log("ERROR: " + _pE); lSS.next(); return; }
         if (lNumPins++ >= NUM_PINS)
           { lSS.next(); return; }
-        lMvStore.q("INSERT (\"http://localhost/mv/property/perf01/name\", \"http://localhost/mv/property/perf01/code\", \"http://localhost/mv/property/perf01/type\") VALUES ('" + randomString(10) + "', '" + randomString(15) + "', 'pathsql');", lCreatePins_nokeepalive);
+        lAffinity.q("INSERT (\"http://localhost/afy/property/perf01/name\", \"http://localhost/afy/property/perf01/code\", \"http://localhost/afy/property/perf01/type\") VALUES ('" + randomString(10) + "', '" + randomString(15) + "', 'pathsql');", lCreatePins_nokeepalive);
       }
-    if (lMvStore.keptAlive())
+    if (lAffinity.keptAlive())
     {
-      lSS.push(function() { lMvStore.q("SET PREFIX perf01p: 'http://localhost/mv/property/perf01/';", lSS.next); });
-      lSS.push(function() { lMvStore.q("START TRANSACTION;", lSS.next); });
+      lSS.push(function() { lAffinity.q("SET PREFIX perf01p: 'http://localhost/afy/property/perf01/';", lSS.next); });
+      lSS.push(function() { lAffinity.q("START TRANSACTION;", lSS.next); });
       lSS.push(lCreatePins_keepalive);
-      lSS.push(function() { lMvStore.q("COMMIT;", lSS.next); });
+      lSS.push(function() { lAffinity.q("COMMIT;", lSS.next); });
     }
     else
     {
@@ -91,11 +91,11 @@ var lTests =
           { console.log("ERROR: " + _pE); lSS.next(); return; }
         if (lNumPins++ >= NUM_PINS)
           { lSS.next(); return; }
-        lMvStore.createPINs([{"http://localhost/mv/property/perf01/name":randomString(10), "http://localhost/mv/property/perf01/code":randomString(15), "http://localhost/mv/property/perf01/type":"proto"}], lCreatePins);
+        lAffinity.createPINs([{"http://localhost/afy/property/perf01/name":randomString(10), "http://localhost/afy/property/perf01/code":randomString(15), "http://localhost/afy/property/perf01/type":"proto"}], lCreatePins);
       }
-    lSS.push(function() { lMvStore.startTx(); lSS.next(); });
+    lSS.push(function() { lAffinity.startTx(); lSS.next(); });
     lSS.push(lCreatePins);
-    lSS.push(function() { lMvStore.commitTx(lSS.next); });
+    lSS.push(function() { lAffinity.commitTx(lSS.next); });
     lSS.push(pOnSuccess);
     lSS.start();
   },
@@ -110,7 +110,7 @@ var lOnExit =
   function()
   {
     console.log("Exiting.");
-    lMvStore.terminate();
+    lAffinity.terminate();
   };
 var lRunNextTest =
   function(pOnlyThisTest)

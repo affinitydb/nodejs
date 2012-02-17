@@ -5,31 +5,31 @@ Copyright © 2004-2011 VMware, Inc. All rights reserved.
 **************************************************************************************/
 
 // This test file contains a blend of basic tests/samples, meant
-// to verify and demonstrate basic mvStore functionality (in node.js).
+// to verify and demonstrate basic Affinity functionality (in node.js).
 // Here, the reader can expect to find verifiable answers to many of his basic
 // "how to" questions. The file also contains a few longer examples, to give
-// a sense of mvStore's typical workflows, in the context of "real" applications.
+// a sense of Affinity's typical workflows, in the context of "real" applications.
 // It does not replace other existing test suites, such as the kernel test suite
 // or the SQL compliance suite (both of which are much more exhaustive).
 // But it should constitute a reasonably comprehensive (yet compact)
-// first experience of interacting with mvStore in node.js.
+// first experience of interacting with Affinity in node.js.
 
 // Resolve dependencies.
-var lib_mvstore = require('./lib/mvstore-client');
+var lib_affinity = require('./lib/affinity-client');
 var lib_assert = require('assert');
 var lib_fs = require('fs');
 var lib_sys = require('sys');
 
-// Connect to the mvstore server.
-var lMvStore = lib_mvstore.createConnection("http://nodetests:@localhost:4560/db/", {keepalive:false});
-var InstrSeq = lib_mvstore.instrSeq;
+// Connect to the Affinity server.
+var lAffinity = lib_affinity.createConnection("http://nodetests:@localhost:4560/db/", {keepalive:false});
+var InstrSeq = lib_affinity.instrSeq;
 
 // Define a small helper for simple write-only transactions.
 function doSimpleTx(_pDoSync, _pCallback, _pTxLabel/*optional*/)
 {
-  lMvStore.startTx(_pTxLabel);
+  lAffinity.startTx(_pTxLabel);
   var lDoCommit = _pDoSync();
-  lDoCommit ? lMvStore.commitTx(_pCallback) : lMvStore.rollbackTx(_pCallback);
+  lDoCommit ? lAffinity.commitTx(_pCallback) : lAffinity.rollbackTx(_pCallback);
 }
 
 // Define a small helper to assert expected typical valid responses.
@@ -49,8 +49,8 @@ var lTests =
   {
     var lSS = new InstrSeq();
     var lPID;
-    lSS.push(function() { lMvStore.q("INSERT (test_basic_pathsql__name, test_basic_pathsql__profession) VALUES ('Roger', 'Painter');", function(_pE, _pR) { assertValidResult(_pR); lPID = _pR[0].id; lSS.simpleOnResponse(_pE, _pR); }); });
-    lSS.push(function() { lMvStore.q("SELECT * WHERE EXISTS(test_basic_pathsql__name);", function(_pE, _pR) { assertValidResult(_pR); var _lFound = false; for (var _iP = 0; _iP < _pR.length; _iP++) { if (lPID == _pR[_iP].id) _lFound = true; } lib_assert.ok(_lFound); lSS.simpleOnResponse(_pE, _pR); }); });
+    lSS.push(function() { lAffinity.q("INSERT (test_basic_pathsql__name, test_basic_pathsql__profession) VALUES ('Roger', 'Painter');", function(_pE, _pR) { assertValidResult(_pR); lPID = _pR[0].id; lSS.simpleOnResponse(_pE, _pR); }); });
+    lSS.push(function() { lAffinity.q("SELECT * WHERE EXISTS(test_basic_pathsql__name);", function(_pE, _pR) { assertValidResult(_pR); var _lFound = false; for (var _iP = 0; _iP < _pR.length; _iP++) { if (lPID == _pR[_iP].id) _lFound = true; } lib_assert.ok(_lFound); lSS.simpleOnResponse(_pE, _pR); }); });
     lSS.push(function() { console.log("done."); pOnSuccess(); });
     lSS.start();
   },
@@ -59,8 +59,8 @@ var lTests =
     var lSS = new InstrSeq();
     var lPID, lPINs;
     var lOnObjects = function(_pE, _pR) { var _lR = ""; lPID = _pR[0].pid; _pR.forEach(function(__pEl){ _lR += JSON.stringify(__pEl.toPropValDict()); }); lSS.simpleOnResponse(_pE, _lR);}
-    lSS.push(function() { lMvStore.createPINs([{test_basic_protobuf__a_string:"whatever", test_basic_protobuf__a_number:123, test_basic_protobuf__a_date:new Date(), test_basic_protobuf__an_array:[1, 2, 3, 4]}], lOnObjects); });
-    lSS.push(function() { lMvStore.qProto("SELECT * FROM @" + lPID.toString(16) + ";", function(_pE, _pR) { lPINs = _pR; lSS.simpleOnResponse(null, "found " + _pR.length + " results."); }); });
+    lSS.push(function() { lAffinity.createPINs([{test_basic_protobuf__a_string:"whatever", test_basic_protobuf__a_number:123, test_basic_protobuf__a_date:new Date(), test_basic_protobuf__an_array:[1, 2, 3, 4]}], lOnObjects); });
+    lSS.push(function() { lAffinity.qProto("SELECT * FROM @" + lPID.toString(16) + ";", function(_pE, _pR) { lPINs = _pR; lSS.simpleOnResponse(null, "found " + _pR.length + " results."); }); });
     lSS.push(
       function()
       {
@@ -76,7 +76,7 @@ var lTests =
           lSS.next);
       });
     lSS.push(function() { lPINs[0].refresh(lSS.simpleOnResponse); }); // Could automate something like this, on transactions that sacrificed some immediate updates (e.g. new eids).
-    lSS.push(function() { lMvStore.q("SELECT * WHERE EXISTS(test_basic_protobuf__an_array);", lSS.simpleOnResponse); });
+    lSS.push(function() { lAffinity.q("SELECT * WHERE EXISTS(test_basic_protobuf__an_array);", lSS.simpleOnResponse); });
     lSS.push(function() { console.log("done."); pOnSuccess(); });
     lSS.start();
   },
@@ -92,8 +92,8 @@ var lTests =
     var lSS = new InstrSeq();
     var lPID, lPINs;
     var lOnObjects = function(_pE, _pR) { var _lR = ""; lPID = _pR[0].pid; _pR.forEach(function(__pEl){ _lR += JSON.stringify(__pEl.toPropValDict()); }); lSS.simpleOnResponse(_pE, _lR);}
-    lSS.push(function() { lMvStore.createPINs([{pushpoptest:[1,2,3,4,5,6,7,8]}], lOnObjects); });
-    lSS.push(function() { lMvStore.qProto("SELECT * FROM @" + lPID.toString(16) + ";", function(_pE, _pR) { lPINs = _pR; lSS.simpleOnResponse(null, "found " + _pR.length + " results."); }); });
+    lSS.push(function() { lAffinity.createPINs([{pushpoptest:[1,2,3,4,5,6,7,8]}], lOnObjects); });
+    lSS.push(function() { lAffinity.qProto("SELECT * FROM @" + lPID.toString(16) + ";", function(_pE, _pR) { lPINs = _pR; lSS.simpleOnResponse(null, "found " + _pR.length + " results."); }); });
     lSS.push(
       function()
       {
@@ -146,8 +146,8 @@ var lTests =
     var lSS = new InstrSeq();
     var lPID, lPINs;
     var lOnObjects = function(_pE, _pR) { var _lR = ""; lPID = _pR[0].pid; _pR.forEach(function(__pEl){ _lR += JSON.stringify(__pEl.toPropValDict()); }); lSS.simpleOnResponse(_pE, _lR);}
-    lSS.push(function() { lMvStore.createPINs([{shifttest:[1,2,3,4,5,6,7,8]}], lOnObjects); });
-    lSS.push(function() { lMvStore.qProto("SELECT * FROM @" + lPID.toString(16) + ";", function(_pE, _pR) { lPINs = _pR; lSS.simpleOnResponse(null, "found " + _pR.length + " results."); }); });
+    lSS.push(function() { lAffinity.createPINs([{shifttest:[1,2,3,4,5,6,7,8]}], lOnObjects); });
+    lSS.push(function() { lAffinity.qProto("SELECT * FROM @" + lPID.toString(16) + ";", function(_pE, _pR) { lPINs = _pR; lSS.simpleOnResponse(null, "found " + _pR.length + " results."); }); });
     lSS.push(
       function()
       {
@@ -199,8 +199,8 @@ var lTests =
     var lSS = new InstrSeq();
     var lPID, lPINs;
     var lOnObjects = function(_pE, _pR) { var _lR = ""; lPID = _pR[0].pid; _pR.forEach(function(__pEl){ _lR += JSON.stringify(__pEl.toPropValDict()); }); lSS.simpleOnResponse(_pE, _lR);}
-    lSS.push(function() { lMvStore.createPINs([{splicetest:['aa','bb','cc','dd','ee','ff']}], lOnObjects); });
-    lSS.push(function() { lMvStore.qProto("SELECT * FROM @" + lPID.toString(16) + ";", function(_pE, _pR) { lPINs = _pR; lSS.simpleOnResponse(null, "found " + _pR.length + " results."); }); });
+    lSS.push(function() { lAffinity.createPINs([{splicetest:['aa','bb','cc','dd','ee','ff']}], lOnObjects); });
+    lSS.push(function() { lAffinity.qProto("SELECT * FROM @" + lPID.toString(16) + ";", function(_pE, _pR) { lPINs = _pR; lSS.simpleOnResponse(null, "found " + _pR.length + " results."); }); });
     lSS.push(
       function()
       {
@@ -220,8 +220,8 @@ var lTests =
     var lSS = new InstrSeq();
     var lPID, lPINs;
     var lOnObjects = function(_pE, _pR) { var _lR = ""; lPID = _pR[0].pid; _pR.forEach(function(__pEl){ _lR += JSON.stringify(__pEl.toPropValDict()); }); lSS.simpleOnResponse(_pE, _lR);}
-    lSS.push(function() { lMvStore.createPINs([{reversetest:["a","b","c","d","e","f","g"]}], lOnObjects); });
-    lSS.push(function() { lMvStore.qProto("SELECT * FROM @" + lPID.toString(16) + ";", function(_pE, _pR) { lPINs = _pR; lSS.simpleOnResponse(null, "found " + _pR.length + " results."); }); });
+    lSS.push(function() { lAffinity.createPINs([{reversetest:["a","b","c","d","e","f","g"]}], lOnObjects); });
+    lSS.push(function() { lAffinity.qProto("SELECT * FROM @" + lPID.toString(16) + ";", function(_pE, _pR) { lPINs = _pR; lSS.simpleOnResponse(null, "found " + _pR.length + " results."); }); });
     lSS.push(
       function()
       {
@@ -240,8 +240,8 @@ var lTests =
     var lSS = new InstrSeq();
     var lPID, lPINs;
     var lOnObjects = function(_pE, _pR) { var _lR = ""; lPID = _pR[0].pid; _pR.forEach(function(__pEl){ _lR += JSON.stringify(__pEl.toPropValDict()); }); lSS.simpleOnResponse(_pE, _lR);}
-    lSS.push(function() { lMvStore.createPINs([{sorttest:[5,8,2,3,1,4,7,6]}], lOnObjects); });
-    lSS.push(function() { lMvStore.qProto("SELECT * FROM @" + lPID.toString(16) + ";", function(_pE, _pR) { lPINs = _pR; lSS.simpleOnResponse(null, "found " + _pR.length + " results."); }); });
+    lSS.push(function() { lAffinity.createPINs([{sorttest:[5,8,2,3,1,4,7,6]}], lOnObjects); });
+    lSS.push(function() { lAffinity.qProto("SELECT * FROM @" + lPID.toString(16) + ";", function(_pE, _pR) { lPINs = _pR; lSS.simpleOnResponse(null, "found " + _pR.length + " results."); }); });
     lSS.push(
       function()
       {
@@ -259,7 +259,7 @@ var lTests =
   /**
    * Simple tests for transactions.
    * There are 2 methods for controlling transactions:
-   *   1. via pathSQL statements; this requires a keep-alive connection (see lib_mvstore.createConnection)
+   *   1. via pathSQL statements; this requires a keep-alive connection (see lib_affinity.createConnection)
    *   2. via the connection's startTx/commitTx/rollbackTx public methods, in protobuf mode
    */
   
@@ -267,31 +267,31 @@ var lTests =
   {
     var lSS = new InstrSeq();
     var lPID, lPINs, lCondPIN;
-    lSS.push(function() { lMvStore.q("INSERT (txtest) VALUES (5);", function(_pE, _pR) { lPID = _pR[0].id; lSS.next() }); });
-    lSS.push(function() { lMvStore.q("INSERT (txtest) VALUES (125);", lSS.next); });
-    lSS.push(function() { lMvStore.q("SELECT * WHERE (txtest > 100);", lSS.simpleOnResponse); });
-    lSS.push(function() { lMvStore.qProto("SELECT * FROM @" + lPID.toString(16) + ";", function(_pE, _pR) { lPINs = _pR; lSS.simpleOnResponse(null, "found " + _pR.length + " results."); }); });
+    lSS.push(function() { lAffinity.q("INSERT (txtest) VALUES (5);", function(_pE, _pR) { lPID = _pR[0].id; lSS.next() }); });
+    lSS.push(function() { lAffinity.q("INSERT (txtest) VALUES (125);", lSS.next); });
+    lSS.push(function() { lAffinity.q("SELECT * WHERE (txtest > 100);", lSS.simpleOnResponse); });
+    lSS.push(function() { lAffinity.qProto("SELECT * FROM @" + lPID.toString(16) + ";", function(_pE, _pR) { lPINs = _pR; lSS.simpleOnResponse(null, "found " + _pR.length + " results."); }); });
     lSS.push(
       function()
       {
         if (0 == lPINs.length) { lSS.next(); return; }
-        lMvStore.startTx("main");
-        lMvStore.startTx("property changes");
+        lAffinity.startTx("main");
+        lAffinity.startTx("property changes");
         lPINs[0].set("txtest", 6);
         lPINs[0].set("someotherprop", 6);
-        lMvStore.commitTx(lSS.next);
+        lAffinity.commitTx(lSS.next);
       });
     lSS.push(
       function()
       {
-        lMvStore.qProto("SELECT * WHERE txtest > 100;", function(_pE, _pR) { console.log("newselect: " + JSON.stringify(_pR)); if (_pR.length > 0 && "pid" in _pR[0]) lCondPIN = _pR[0]; lSS.next(); });
+        lAffinity.qProto("SELECT * WHERE txtest > 100;", function(_pE, _pR) { console.log("newselect: " + JSON.stringify(_pR)); if (_pR.length > 0 && "pid" in _pR[0]) lCondPIN = _pR[0]; lSS.next(); });
       });
     lSS.push(
       function()
       {
         if (undefined != lCondPIN)
           lPINs[0].set("conditionalprop", 6);
-        lMvStore.commitTx(lSS.next);
+        lAffinity.commitTx(lSS.next);
       });
     lSS.push(function() { console.log("done."); pOnSuccess(); });
     lSS.start();
@@ -300,27 +300,27 @@ var lTests =
   {
     var lSS = new InstrSeq();
     var lPID, lPINs, lCondPIN;
-    lSS.push(function() { lMvStore.q("INSERT (txtest) VALUES (5);", function(_pE, _pR) { lPID = _pR[0].id; lSS.next() }); });
-    lSS.push(function() { lMvStore.q("INSERT (txtest) VALUES (125);", lSS.next); });
-    lSS.push(function() { lMvStore.q("SELECT * WHERE (txtest > 100);", lSS.simpleOnResponse); });
-    lSS.push(function() { lMvStore.qProto("SELECT * FROM @" + lPID.toString(16) + ";", function(_pE, _pR) { lPINs = _pR; lSS.simpleOnResponse(null, "found " + _pR.length + " results."); }); });
+    lSS.push(function() { lAffinity.q("INSERT (txtest) VALUES (5);", function(_pE, _pR) { lPID = _pR[0].id; lSS.next() }); });
+    lSS.push(function() { lAffinity.q("INSERT (txtest) VALUES (125);", lSS.next); });
+    lSS.push(function() { lAffinity.q("SELECT * WHERE (txtest > 100);", lSS.simpleOnResponse); });
+    lSS.push(function() { lAffinity.qProto("SELECT * FROM @" + lPID.toString(16) + ";", function(_pE, _pR) { lPINs = _pR; lSS.simpleOnResponse(null, "found " + _pR.length + " results."); }); });
     lSS.push(
       function()
       {
         if (0 == lPINs.length) { lSS.next(); return; }
-        lMvStore.startTx("main");
+        lAffinity.startTx("main");
         lPINs[0].set("txtest", 6);
         lPINs[0].set("someotherprop", 6);
-        lMvStore.qProto("SELECT * WHERE (txtest > 100);", function(_pE, _pR) { console.log("newselect: " + JSON.stringify(_pR)); if (_pR.length > 0 && "pid" in _pR[0]) lCondPIN = _pR[0]; lSS.next(); });
+        lAffinity.qProto("SELECT * WHERE (txtest > 100);", function(_pE, _pR) { console.log("newselect: " + JSON.stringify(_pR)); if (_pR.length > 0 && "pid" in _pR[0]) lCondPIN = _pR[0]; lSS.next(); });
         // Note:
-        //   Unlike in test_tx1, here the results returned by mvstore are mixed (prop sets + select)...
+        //   Unlike in test_tx1, here the results returned by Affinity are mixed (prop sets + select)...
       });
     lSS.push(
       function()
       {
         if (undefined != lCondPIN)
           lPINs[0].set("conditionalprop", 6);
-        lMvStore.commitTx(lSS.next);
+        lAffinity.commitTx(lSS.next);
       });
     lSS.push(function() { console.log("done."); pOnSuccess(); });
     lSS.start();
@@ -331,13 +331,13 @@ var lTests =
     lSS.push(
       function()
       {
-        lMvStore.startTx();
-        lMvStore.createPINs(
+        lAffinity.startTx();
+        lAffinity.createPINs(
           [{test_tx_simple_write:"whatever"}],
           function(_pE, _pR)
           {
             console.log("newpin " + JSON.stringify(_pR));
-            lMvStore.commitTx(lSS.next);
+            lAffinity.commitTx(lSS.next);
           });
       });
     lSS.push(function() { console.log("done."); pOnSuccess(); });
@@ -346,17 +346,17 @@ var lTests =
   test_tx_simple_read:function(pOnSuccess)
   {
     var lSS = new InstrSeq();
-    lSS.push(function() { lMvStore.q("INSERT (txtest) VALUES (125);", lSS.next); });
+    lSS.push(function() { lAffinity.q("INSERT (txtest) VALUES (125);", lSS.next); });
     lSS.push(
       function()
       {
-        lMvStore.startTx();
-        lMvStore.qProto(
+        lAffinity.startTx();
+        lAffinity.qProto(
           "SELECT * WHERE (txtest > 100);",
           function(_pE, _pR)
           {
             console.log("newselect: " + JSON.stringify(_pR));
-            lMvStore.commitTx(lSS.next);
+            lAffinity.commitTx(lSS.next);
           });
       });
     lSS.push(function() { console.log("done."); pOnSuccess(); });
@@ -364,7 +364,7 @@ var lTests =
   },
   test_tx_relying_on_keep_alive:function(pOnSuccess)
   {
-    if (!lMvStore.keptAlive())
+    if (!lAffinity.keptAlive())
     {
       console.log("warning: this test requires a keep-alive connection - skipped.");
       pOnSuccess();
@@ -372,14 +372,14 @@ var lTests =
     }
     var lSS = new InstrSeq();
     var lPID;
-    lSS.push(function() { console.log("Creating an object and committing."); lMvStore.q("START TRANSACTION;", lSS.simpleOnResponse); });
-    lSS.push(function() { lMvStore.q("INSERT (tx_keepalive_committed) VALUES (1);", function(_pE, _pR) { lPID = _pR[0].id; lSS.next() }); });
-    lSS.push(function() { lMvStore.q("COMMIT;", lSS.simpleOnResponse); });
-    lSS.push(function() { console.log("Adding a property and rolling back."); lMvStore.q("START TRANSACTION;", lSS.simpleOnResponse); });
-    lSS.push(function() { lMvStore.q("UPDATE @" + lPID.toString(16) + " SET tx_keepalive_rolledback=2;", lSS.simpleOnResponse); });
-    lSS.push(function() { lMvStore.q("SELECT * FROM @" + lPID.toString(16) + ";", function(_pE, _pR) { lib_assert.ok("tx_keepalive_committed" in _pR[0] && "tx_keepalive_rolledback" in _pR[0], "before rollback"); lSS.next(); }); });
-    lSS.push(function() { lMvStore.q("ROLLBACK;", lSS.simpleOnResponse); });
-    lSS.push(function() { lMvStore.q("SELECT * FROM @" + lPID.toString(16) + ";", function(_pE, _pR) { lib_assert.ok("tx_keepalive_committed" in _pR[0] && !("tx_keepalive_rolledback" in _pR[0]), "after rollback"); lSS.next(); }); });
+    lSS.push(function() { console.log("Creating an object and committing."); lAffinity.q("START TRANSACTION;", lSS.simpleOnResponse); });
+    lSS.push(function() { lAffinity.q("INSERT (tx_keepalive_committed) VALUES (1);", function(_pE, _pR) { lPID = _pR[0].id; lSS.next() }); });
+    lSS.push(function() { lAffinity.q("COMMIT;", lSS.simpleOnResponse); });
+    lSS.push(function() { console.log("Adding a property and rolling back."); lAffinity.q("START TRANSACTION;", lSS.simpleOnResponse); });
+    lSS.push(function() { lAffinity.q("UPDATE @" + lPID.toString(16) + " SET tx_keepalive_rolledback=2;", lSS.simpleOnResponse); });
+    lSS.push(function() { lAffinity.q("SELECT * FROM @" + lPID.toString(16) + ";", function(_pE, _pR) { lib_assert.ok("tx_keepalive_committed" in _pR[0] && "tx_keepalive_rolledback" in _pR[0], "before rollback"); lSS.next(); }); });
+    lSS.push(function() { lAffinity.q("ROLLBACK;", lSS.simpleOnResponse); });
+    lSS.push(function() { lAffinity.q("SELECT * FROM @" + lPID.toString(16) + ";", function(_pE, _pR) { lib_assert.ok("tx_keepalive_committed" in _pR[0] && !("tx_keepalive_rolledback" in _pR[0]), "after rollback"); lSS.next(); }); });
     lSS.push(function() { console.log("done."); pOnSuccess(); });
     lSS.start();
   },
@@ -399,17 +399,17 @@ var lTests =
           {
             var _lSS = new InstrSeq();
             var _lPIN;
-            _lSS.push(function() { lMvStore.qProto("INSERT (\"http://localhost/mv/property/test_types/value1\") VALUES (" + _pValueStr + ");", function(_pE, _pR) { assertValidResult(_pR); _lPIN = _pR[0]; _lSS.next() }); });
-            _lSS.push(function() { _lPIN.set("http://localhost/mv/property/test_types/value2", _pValue, {txend:function(){_lSS.next();}}); });
+            _lSS.push(function() { lAffinity.qProto("INSERT (\"http://localhost/afy/property/test_types/value1\") VALUES (" + _pValueStr + ");", function(_pE, _pR) { assertValidResult(_pR); _lPIN = _pR[0]; _lSS.next() }); });
+            _lSS.push(function() { _lPIN.set("http://localhost/afy/property/test_types/value2", _pValue, {txend:function(){_lSS.next();}}); });
             _lSS.push(function() { _lPIN.refresh(_lSS.next); });
             _lSS.push(
               function()
               {
                 var _lCmpEval = function(__pV) { return (typeof(__pV) == "object") ? __pV.toString() : __pV; } // Note: In javascript comparison of objects is always by reference by default...
-                lib_assert.ok(_lCmpEval(_pValue) == _lCmpEval(_lPIN.get("http://localhost/mv/property/test_types/value1")));
-                lib_assert.ok(_lCmpEval(_pValue) == _lCmpEval(_lPIN.get("http://localhost/mv/property/test_types/value2")));
-                lib_assert.ok(_pVT == _lPIN.getExtras()["http://localhost/mv/property/test_types/value1"].type);
-                lib_assert.ok(_pVT == _lPIN.getExtras()["http://localhost/mv/property/test_types/value2"].type);
+                lib_assert.ok(_lCmpEval(_pValue) == _lCmpEval(_lPIN.get("http://localhost/afy/property/test_types/value1")));
+                lib_assert.ok(_lCmpEval(_pValue) == _lCmpEval(_lPIN.get("http://localhost/afy/property/test_types/value2")));
+                lib_assert.ok(_pVT == _lPIN.getExtras()["http://localhost/afy/property/test_types/value1"].type);
+                lib_assert.ok(_pVT == _lPIN.getExtras()["http://localhost/afy/property/test_types/value2"].type);
                 console.log(_pVT + " passed" + (_pComment ? _pComment : ""));
                 _lSS.next();
               });
@@ -476,18 +476,18 @@ var lTests =
           }
           return 0;
         }
-        _lSS.push(function() { lMvStore.qProto("INSERT (\"http://localhost/mv/property/test_types/value1\") VALUES (X'" + _lBin2HexStr(_lValue) + "');", function(_pE, _pR) { assertValidResult(_pR); _lPIN = _pR[0]; _lSS.next() }); });
-        _lSS.push(function() { _lPIN.set("http://localhost/mv/property/test_types/value2", _lValue, {txend:function(){_lSS.next();}}); });
+        _lSS.push(function() { lAffinity.qProto("INSERT (\"http://localhost/afy/property/test_types/value1\") VALUES (X'" + _lBin2HexStr(_lValue) + "');", function(_pE, _pR) { assertValidResult(_pR); _lPIN = _pR[0]; _lSS.next() }); });
+        _lSS.push(function() { _lPIN.set("http://localhost/afy/property/test_types/value2", _lValue, {txend:function(){_lSS.next();}}); });
         _lSS.push(function() { _lPIN.refresh(_lSS.next); });
         _lSS.push(
           function()
           {
-            lib_assert.ok(_lPIN.get("http://localhost/mv/property/test_types/value1") instanceof process.binding('buffer').SlowBuffer);
-            lib_assert.ok(_lPIN.get("http://localhost/mv/property/test_types/value2") instanceof process.binding('buffer').SlowBuffer);
-            lib_assert.ok(0 == _lCompareBuffers(_lValue, _lPIN.get("http://localhost/mv/property/test_types/value1")));
-            lib_assert.ok(0 == _lCompareBuffers(_lValue, _lPIN.get("http://localhost/mv/property/test_types/value2")));
-            lib_assert.ok('VT_BSTR' == _lPIN.getExtras()["http://localhost/mv/property/test_types/value1"].type);
-            lib_assert.ok('VT_BSTR' == _lPIN.getExtras()["http://localhost/mv/property/test_types/value2"].type);
+            lib_assert.ok(_lPIN.get("http://localhost/afy/property/test_types/value1") instanceof process.binding('buffer').SlowBuffer);
+            lib_assert.ok(_lPIN.get("http://localhost/afy/property/test_types/value2") instanceof process.binding('buffer').SlowBuffer);
+            lib_assert.ok(0 == _lCompareBuffers(_lValue, _lPIN.get("http://localhost/afy/property/test_types/value1")));
+            lib_assert.ok(0 == _lCompareBuffers(_lValue, _lPIN.get("http://localhost/afy/property/test_types/value2")));
+            lib_assert.ok('VT_BSTR' == _lPIN.getExtras()["http://localhost/afy/property/test_types/value1"].type);
+            lib_assert.ok('VT_BSTR' == _lPIN.getExtras()["http://localhost/afy/property/test_types/value2"].type);
             console.log("VT_BSTR passed");
             _lSS.next();
           });
@@ -501,19 +501,19 @@ var lTests =
       {
         var _lSS = new InstrSeq();
         var _lPIN;
-        var _lValue = lMvStore.makeUrl("urn:issn:1234-5678");
-        _lSS.push(function() { lMvStore.qProto("INSERT (\"http://localhost/mv/property/test_types/value1\") VALUES (U'" + _lValue.toString() + "');", function(_pE, _pR) { assertValidResult(_pR); _lPIN = _pR[0]; _lSS.next() }); });
-        _lSS.push(function() { _lPIN.set("http://localhost/mv/property/test_types/value2", _lValue, {txend:function(){_lSS.next();}}); });
+        var _lValue = lAffinity.makeUrl("urn:issn:1234-5678");
+        _lSS.push(function() { lAffinity.qProto("INSERT (\"http://localhost/afy/property/test_types/value1\") VALUES (U'" + _lValue.toString() + "');", function(_pE, _pR) { assertValidResult(_pR); _lPIN = _pR[0]; _lSS.next() }); });
+        _lSS.push(function() { _lPIN.set("http://localhost/afy/property/test_types/value2", _lValue, {txend:function(){_lSS.next();}}); });
         _lSS.push(function() { _lPIN.refresh(_lSS.next); });
         _lSS.push(
           function()
           {
-            lib_assert.ok(_lPIN.get("http://localhost/mv/property/test_types/value1").isUrl());
-            lib_assert.ok(_lPIN.get("http://localhost/mv/property/test_types/value2").isUrl());
-            lib_assert.ok(_lValue == _lPIN.get("http://localhost/mv/property/test_types/value1").toString());
-            lib_assert.ok(_lValue == _lPIN.get("http://localhost/mv/property/test_types/value2").toString());
-            lib_assert.ok('VT_URL' == _lPIN.getExtras()["http://localhost/mv/property/test_types/value1"].type);
-            lib_assert.ok('VT_URL' == _lPIN.getExtras()["http://localhost/mv/property/test_types/value2"].type);
+            lib_assert.ok(_lPIN.get("http://localhost/afy/property/test_types/value1").isUrl());
+            lib_assert.ok(_lPIN.get("http://localhost/afy/property/test_types/value2").isUrl());
+            lib_assert.ok(_lValue == _lPIN.get("http://localhost/afy/property/test_types/value1").toString());
+            lib_assert.ok(_lValue == _lPIN.get("http://localhost/afy/property/test_types/value2").toString());
+            lib_assert.ok('VT_URL' == _lPIN.getExtras()["http://localhost/afy/property/test_types/value1"].type);
+            lib_assert.ok('VT_URL' == _lPIN.getExtras()["http://localhost/afy/property/test_types/value2"].type);
             console.log("VT_URL passed");
             _lSS.next();
           });
@@ -532,13 +532,13 @@ var lTests =
         var _lSS = new InstrSeq();
         var _lPIN;
         var _lValue = 123.456;
-        _lSS.push(function() { lMvStore.qProto("INSERT (\"http://localhost/mv/property/test_types/value1\") VALUES (" + _lValue + "f);", function(_pE, _pR) { assertValidResult(_pR); _lPIN = _pR[0]; _lSS.next() }); });
+        _lSS.push(function() { lAffinity.qProto("INSERT (\"http://localhost/afy/property/test_types/value1\") VALUES (" + _lValue + "f);", function(_pE, _pR) { assertValidResult(_pR); _lPIN = _pR[0]; _lSS.next() }); });
         _lSS.push(
           function()
           {
-            lib_assert.ok(_lValue - 0.00000001 < _lPIN.get("http://localhost/mv/property/test_types/value1") < _lValue + 0.00000001);
-            lib_assert.ok(typeof(_lPIN.get("http://localhost/mv/property/test_types/value1")) == "number");
-            lib_assert.ok('VT_FLOAT' == _lPIN.getExtras()["http://localhost/mv/property/test_types/value1"].type);
+            lib_assert.ok(_lValue - 0.00000001 < _lPIN.get("http://localhost/afy/property/test_types/value1") < _lValue + 0.00000001);
+            lib_assert.ok(typeof(_lPIN.get("http://localhost/afy/property/test_types/value1")) == "number");
+            lib_assert.ok('VT_FLOAT' == _lPIN.getExtras()["http://localhost/afy/property/test_types/value1"].type);
             console.log("VT_INT/VT_UINT/VT_INT64/VT_UINT64/VT_FLOAT passed");
             _lSS.next();
           });
@@ -552,7 +552,7 @@ var lTests =
       {
         var _lSS = new InstrSeq();
         var _lPINReferenced;
-        _lSS.push(function() { lMvStore.createPINs([{"http://localhost/mv/property/test_types/bogus":[1,2,3,4]}], function(_pE, _pR) { assertValidResult(_pR); _lPINReferenced = _pR[0]; _lSS.next() }); });
+        _lSS.push(function() { lAffinity.createPINs([{"http://localhost/afy/property/test_types/bogus":[1,2,3,4]}], function(_pE, _pR) { assertValidResult(_pR); _lPINReferenced = _pR[0]; _lSS.next() }); });
         _lSS.push(function() { _lPINReferenced.refresh(_lSS.next); }); // TODO: Check why I need to do this... shouldn't...
         var _lRefid;
         var _lRefidprop;
@@ -560,38 +560,38 @@ var lTests =
         _lSS.push(
           function()
           {
-            _lRefid = lMvStore.makeRef(_lPINReferenced.pid);
-            _lRefidprop = lMvStore.makeRef(_lPINReferenced.pid, 0, "http://localhost/mv/property/test_types/bogus");
-            _lRefidelt = lMvStore.makeRef(_lPINReferenced.pid, 0, "http://localhost/mv/property/test_types/bogus", _lPINReferenced.getExtras()["http://localhost/mv/property/test_types/bogus"][2].eid); // TODO: don't use getExtras for this, offer a better way.
+            _lRefid = lAffinity.makeRef(_lPINReferenced.pid);
+            _lRefidprop = lAffinity.makeRef(_lPINReferenced.pid, 0, "http://localhost/afy/property/test_types/bogus");
+            _lRefidelt = lAffinity.makeRef(_lPINReferenced.pid, 0, "http://localhost/afy/property/test_types/bogus", _lPINReferenced.getExtras()["http://localhost/afy/property/test_types/bogus"][2].eid); // TODO: don't use getExtras for this, offer a better way.
             _lSS.next();
           });
         var _lPINReferencing;
-        _lSS.push(function() { lMvStore.qProto("INSERT (\"http://localhost/mv/property/test_types/REFID/value1\", \"http://localhost/mv/property/test_types/REFIDPROP/value1\", \"http://localhost/mv/property/test_types/REFIDELT/value1\") VALUES (" + _lRefid.toString() + "," + _lRefidprop.toString() + "," + _lRefidelt.toString() + ");", function(_pE, _pR) { assertValidResult(_pR); _lPINReferencing = _pR[0]; _lSS.next() }); });
-        _lSS.push(function() { _lPINReferencing.set("http://localhost/mv/property/test_types/REFID/value2", _lRefid, {txend:function(){_lSS.next();}}); });
-        _lSS.push(function() { _lPINReferencing.set("http://localhost/mv/property/test_types/REFIDPROP/value2", _lRefidprop, {txend:function(){_lSS.next();}}); });
-        _lSS.push(function() { _lPINReferencing.set("http://localhost/mv/property/test_types/REFIDELT/value2", _lRefidelt, {txend:function(){_lSS.next();}}); });
+        _lSS.push(function() { lAffinity.qProto("INSERT (\"http://localhost/afy/property/test_types/REFID/value1\", \"http://localhost/afy/property/test_types/REFIDPROP/value1\", \"http://localhost/afy/property/test_types/REFIDELT/value1\") VALUES (" + _lRefid.toString() + "," + _lRefidprop.toString() + "," + _lRefidelt.toString() + ");", function(_pE, _pR) { assertValidResult(_pR); _lPINReferencing = _pR[0]; _lSS.next() }); });
+        _lSS.push(function() { _lPINReferencing.set("http://localhost/afy/property/test_types/REFID/value2", _lRefid, {txend:function(){_lSS.next();}}); });
+        _lSS.push(function() { _lPINReferencing.set("http://localhost/afy/property/test_types/REFIDPROP/value2", _lRefidprop, {txend:function(){_lSS.next();}}); });
+        _lSS.push(function() { _lPINReferencing.set("http://localhost/afy/property/test_types/REFIDELT/value2", _lRefidelt, {txend:function(){_lSS.next();}}); });
         _lSS.push(function() { _lPINReferencing.refresh(_lSS.next); });
         _lSS.push(
           function()
           {
-            lib_assert.ok(_lPINReferencing.get("http://localhost/mv/property/test_types/REFID/value1").isRef());
-            lib_assert.ok(_lPINReferencing.get("http://localhost/mv/property/test_types/REFID/value2").isRef());
-            lib_assert.ok(_lPINReferencing.get("http://localhost/mv/property/test_types/REFIDPROP/value1").isRef());
-            lib_assert.ok(_lPINReferencing.get("http://localhost/mv/property/test_types/REFIDPROP/value2").isRef());
-            lib_assert.ok(_lPINReferencing.get("http://localhost/mv/property/test_types/REFIDELT/value1").isRef());
-            lib_assert.ok(_lPINReferencing.get("http://localhost/mv/property/test_types/REFIDELT/value2").isRef());
-            lib_assert.ok(_lRefid.toString() == _lPINReferencing.get("http://localhost/mv/property/test_types/REFID/value1").toString());
-            lib_assert.ok(_lRefid.toString() == _lPINReferencing.get("http://localhost/mv/property/test_types/REFID/value2").toString());
-            lib_assert.ok(_lRefidprop.toString() == _lPINReferencing.get("http://localhost/mv/property/test_types/REFIDPROP/value1").toString());            
-            lib_assert.ok(_lRefidprop.toString() == _lPINReferencing.get("http://localhost/mv/property/test_types/REFIDPROP/value2").toString());
-            lib_assert.ok(_lRefidelt.toString() == _lPINReferencing.get("http://localhost/mv/property/test_types/REFIDELT/value1").toString());
-            lib_assert.ok(_lRefidelt.toString() == _lPINReferencing.get("http://localhost/mv/property/test_types/REFIDELT/value2").toString());
-            lib_assert.ok('VT_REFID' == _lPINReferencing.getExtras()["http://localhost/mv/property/test_types/REFID/value1"].type);
-            lib_assert.ok('VT_REFID' == _lPINReferencing.getExtras()["http://localhost/mv/property/test_types/REFID/value2"].type);
-            lib_assert.ok('VT_REFIDPROP' == _lPINReferencing.getExtras()["http://localhost/mv/property/test_types/REFIDPROP/value1"].type);
-            lib_assert.ok('VT_REFIDPROP' == _lPINReferencing.getExtras()["http://localhost/mv/property/test_types/REFIDPROP/value2"].type);
-            lib_assert.ok('VT_REFIDELT' == _lPINReferencing.getExtras()["http://localhost/mv/property/test_types/REFIDELT/value1"].type);
-            lib_assert.ok('VT_REFIDELT' == _lPINReferencing.getExtras()["http://localhost/mv/property/test_types/REFIDELT/value2"].type);
+            lib_assert.ok(_lPINReferencing.get("http://localhost/afy/property/test_types/REFID/value1").isRef());
+            lib_assert.ok(_lPINReferencing.get("http://localhost/afy/property/test_types/REFID/value2").isRef());
+            lib_assert.ok(_lPINReferencing.get("http://localhost/afy/property/test_types/REFIDPROP/value1").isRef());
+            lib_assert.ok(_lPINReferencing.get("http://localhost/afy/property/test_types/REFIDPROP/value2").isRef());
+            lib_assert.ok(_lPINReferencing.get("http://localhost/afy/property/test_types/REFIDELT/value1").isRef());
+            lib_assert.ok(_lPINReferencing.get("http://localhost/afy/property/test_types/REFIDELT/value2").isRef());
+            lib_assert.ok(_lRefid.toString() == _lPINReferencing.get("http://localhost/afy/property/test_types/REFID/value1").toString());
+            lib_assert.ok(_lRefid.toString() == _lPINReferencing.get("http://localhost/afy/property/test_types/REFID/value2").toString());
+            lib_assert.ok(_lRefidprop.toString() == _lPINReferencing.get("http://localhost/afy/property/test_types/REFIDPROP/value1").toString());            
+            lib_assert.ok(_lRefidprop.toString() == _lPINReferencing.get("http://localhost/afy/property/test_types/REFIDPROP/value2").toString());
+            lib_assert.ok(_lRefidelt.toString() == _lPINReferencing.get("http://localhost/afy/property/test_types/REFIDELT/value1").toString());
+            lib_assert.ok(_lRefidelt.toString() == _lPINReferencing.get("http://localhost/afy/property/test_types/REFIDELT/value2").toString());
+            lib_assert.ok('VT_REFID' == _lPINReferencing.getExtras()["http://localhost/afy/property/test_types/REFID/value1"].type);
+            lib_assert.ok('VT_REFID' == _lPINReferencing.getExtras()["http://localhost/afy/property/test_types/REFID/value2"].type);
+            lib_assert.ok('VT_REFIDPROP' == _lPINReferencing.getExtras()["http://localhost/afy/property/test_types/REFIDPROP/value1"].type);
+            lib_assert.ok('VT_REFIDPROP' == _lPINReferencing.getExtras()["http://localhost/afy/property/test_types/REFIDPROP/value2"].type);
+            lib_assert.ok('VT_REFIDELT' == _lPINReferencing.getExtras()["http://localhost/afy/property/test_types/REFIDELT/value1"].type);
+            lib_assert.ok('VT_REFIDELT' == _lPINReferencing.getExtras()["http://localhost/afy/property/test_types/REFIDELT/value2"].type);
             console.log("VT_REFID/VT_REFIDPROP/VT_REFIDELT passed");
             _lSS.next();
           });
@@ -604,7 +604,7 @@ var lTests =
   },
   test_qnames:function(pOnSuccess)
   {
-    if (!lMvStore.keptAlive())
+    if (!lAffinity.keptAlive())
     {
       console.log("warning: this test requires a keep-alive connection - skipped.");
       pOnSuccess();
@@ -612,14 +612,14 @@ var lTests =
     }
     var lSS = new InstrSeq();
     var lPID;
-    lSS.push(function() { lMvStore.q("SET PREFIX myqnamec: 'http://localhost/mv/class/test_qnames/';", lSS.next); });
-    lSS.push(function() { lMvStore.q("SET PREFIX myqnamep: 'http://localhost/mv/property/test_qnames/';", lSS.next); });
+    lSS.push(function() { lAffinity.q("SET PREFIX myqnamec: 'http://localhost/afy/class/test_qnames/';", lSS.next); });
+    lSS.push(function() { lAffinity.q("SET PREFIX myqnamep: 'http://localhost/afy/property/test_qnames/';", lSS.next); });
     var lClassesExist = false;
     var lOnSelectClasses = function(pError, pResponse) { console.log("substep " + lSS.curstep()); if (pError) console.log("\n*** ERROR: " + pError + "\n"); else { console.log("Result from step " + lSS.curstep() + ":" + JSON.stringify(pResponse)); lClassesExist = (pResponse && pResponse.length > 0); lSS.next(); } }
-    lSS.push(function() { lMvStore.q("SELECT * FROM afy:ClassOfClasses WHERE BEGINS(afy:classID, 'http://localhost/mv/class/test_qnames/');", lOnSelectClasses); });
-    lSS.push(function() { if (lClassesExist) lSS.next(); else lMvStore.q("CREATE CLASS myqnamec:pos AS SELECT * WHERE EXISTS(myqnamep:x) AND EXISTS(myqnamep:y);", lSS.simpleOnResponse); });
-    lSS.push(function() { lMvStore.q("INSERT (myqnamep:x, myqnamep:y) VALUES (" + Math.random() + "," + Math.random() + ");", lSS.simpleOnResponse); });
-    lSS.push(function() { lMvStore.qProto("SELECT * FROM myqnamec:pos;", function(_pE, _pR) { assertValidResult(_pR); for (var _iP = 0; _iP < _pR.length; _iP++) { console.log(JSON.stringify(_pR[_iP].toPropValDict())); } lSS.next(); }); });
+    lSS.push(function() { lAffinity.q("SELECT * FROM afy:ClassOfClasses WHERE BEGINS(afy:classID, 'http://localhost/afy/class/test_qnames/');", lOnSelectClasses); });
+    lSS.push(function() { if (lClassesExist) lSS.next(); else lAffinity.q("CREATE CLASS myqnamec:pos AS SELECT * WHERE EXISTS(myqnamep:x) AND EXISTS(myqnamep:y);", lSS.simpleOnResponse); });
+    lSS.push(function() { lAffinity.q("INSERT (myqnamep:x, myqnamep:y) VALUES (" + Math.random() + "," + Math.random() + ");", lSS.simpleOnResponse); });
+    lSS.push(function() { lAffinity.qProto("SELECT * FROM myqnamec:pos;", function(_pE, _pR) { assertValidResult(_pR); for (var _iP = 0; _iP < _pR.length; _iP++) { console.log(JSON.stringify(_pR[_iP].toPropValDict())); } lSS.next(); }); });
     lSS.push(function() { console.log("done."); pOnSuccess(); });
     lSS.start();
   },
@@ -628,7 +628,7 @@ var lTests =
     var lSS = new InstrSeq();
     var lPIN;
     var lOnObjects = function(_pE, _pR) { assertValidResult(_pR); lPIN = _pR[0]; lSS.next(); }
-    lSS.push(function() { lMvStore.createPINs([{test_scalar_vs_collection:"whatever"}], lOnObjects); });
+    lSS.push(function() { lAffinity.createPINs([{test_scalar_vs_collection:"whatever"}], lOnObjects); });
     lSS.push(function() { lPIN.set("test_scalar_vs_collection", ["s1", 2, "s3", 4], {txend:lSS.next}); });
     lSS.push(function() { lib_assert.deepEqual(lPIN.toPropValDict()["test_scalar_vs_collection"], ["s1", 2, "s3", 4], "scalar -> collection (1)"); lPIN.refresh(lSS.next); });
     lSS.push(function() { lib_assert.deepEqual(lPIN.toPropValDict()["test_scalar_vs_collection"], ["s1", 2, "s3", 4], "scalar -> collection (2)"); lSS.next(); });
@@ -664,7 +664,7 @@ var lTests =
 
   test_app_photos1:function(pOnSuccess) // Same as python/tests/testPhotos1.py. Uses only 'q' and 'qCount' (not qProto).
   {
-    if (!lMvStore.keptAlive())
+    if (!lAffinity.keptAlive())
     {
       console.log("warning: transactions in this test will not be perfectly respected without a keep-alive connection.");
     }
@@ -703,8 +703,8 @@ var lTests =
         _lResult += _lChars.charAt(Math.floor(Math.random() * _lChars.length));
       return _lResult;
     }
-    var lStartTx = function(_pSS) { if (lMvStore.keptAlive()) { lMvStore.q("START TRANSACTION;", _pSS.next); } else { _pSS.next(); } }
-    var lCommitTx = function(_pSS) { if (lMvStore.keptAlive()) { lMvStore.q("COMMIT;", _pSS.next); } else { _pSS.next(); } }
+    var lStartTx = function(_pSS) { if (lAffinity.keptAlive()) { lAffinity.q("START TRANSACTION;", _pSS.next); } else { _pSS.next(); } }
+    var lCommitTx = function(_pSS) { if (lAffinity.keptAlive()) { lAffinity.q("COMMIT;", _pSS.next); } else { _pSS.next(); } }
     var lCreatePhoto = function(_pDir, _pFileName, _pOnSuccess) // Creates the specified photo object in the db (asynchronous).
     {
       var _lFullPath = _pDir + "/" + _pFileName;
@@ -718,7 +718,7 @@ var lTests =
         {
           var __lDateStr = _lDate.toJSON().substring(0, 10);
           var __lTimeStr = _lDate.toLocaleTimeString();
-          lMvStore.q("INSERT (\"http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#hasHash\", \"http://www.w3.org/2001/XMLSchema#date\", \"http://www.w3.org/2001/XMLSchema#time\", \"http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#fileUrl\", \"http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#fileName\") VALUES ('" + _lHash + "', TIMESTAMP'" + __lDateStr + "', INTERVAL'" + __lTimeStr + "', '" + _pDir + "', '" + _pFileName + "');", function(__pE, __pR) { assertValidResult(__pR); _lSS.next() });
+          lAffinity.q("INSERT (\"http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#hasHash\", \"http://www.w3.org/2001/XMLSchema#date\", \"http://www.w3.org/2001/XMLSchema#time\", \"http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#fileUrl\", \"http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#fileName\") VALUES ('" + _lHash + "', TIMESTAMP'" + __lDateStr + "', INTERVAL'" + __lTimeStr + "', '" + _pDir + "', '" + _pFileName + "');", function(__pE, __pR) { assertValidResult(__pR); _lSS.next() });
         });
       _lSS.push(_pOnSuccess);
       _lSS.start();
@@ -727,16 +727,16 @@ var lTests =
     {
       lInMemoryChk.setUserGroup(_pUser, _pGroup);
       var _lSS = new InstrSeq();
-      _lSS.push(function() { lMvStore.q("INSERT (\"http://xmlns.com/foaf/0.1/mbox\", \"http://www.w3.org/2002/01/p3prdfv1#user.login.password\", \"http://xmlns.com/foaf/0.1/member/adomain:Group\") VALUES ('" + _pUser + "', '" + lRandomString(20)  + "', '" + _pGroup + "');", _lSS.next); });
-      _lSS.push(function() { lMvStore.qCount("SELECT * FROM \"http://localhost/mv/class/testphotos1/user\" WHERE \"http://xmlns.com/foaf/0.1/member/adomain:Group\"='" + _pGroup + "';", function(__pE, __pR) { console.log("group " + _pGroup + " contains " + __pR + " users"); _lSS.next(); }) });
+      _lSS.push(function() { lAffinity.q("INSERT (\"http://xmlns.com/foaf/0.1/mbox\", \"http://www.w3.org/2002/01/p3prdfv1#user.login.password\", \"http://xmlns.com/foaf/0.1/member/adomain:Group\") VALUES ('" + _pUser + "', '" + lRandomString(20)  + "', '" + _pGroup + "');", _lSS.next); });
+      _lSS.push(function() { lAffinity.qCount("SELECT * FROM \"http://localhost/afy/class/testphotos1/user\" WHERE \"http://xmlns.com/foaf/0.1/member/adomain:Group\"='" + _pGroup + "';", function(__pE, __pR) { console.log("group " + _pGroup + " contains " + __pR + " users"); _lSS.next(); }) });
       _lSS.push(_pOnSuccess);
       _lSS.start();
     };
     var lSelectDistinctGroups = function(_pOnSuccess) // Selects all distinct group names (asynchronous).
     {
-      // Review: eventually mvstore will allow to SELECT DISTINCT(groupid) FROM users...
-      lMvStore.q(
-        "SELECT * FROM \"http://localhost/mv/class/testphotos1/user\";",
+      // Review: eventually Affinity will allow to SELECT DISTINCT(groupid) FROM users...
+      lAffinity.q(
+        "SELECT * FROM \"http://localhost/afy/class/testphotos1/user\";",
         function(__pE, __pR)
         {
           if (__pE) _pOnSuccess([]);
@@ -756,13 +756,13 @@ var lTests =
         else
         {
           lInMemoryChk.tagPhoto(__pPhoto["http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#hasHash"], _pTagName);
-          lMvStore.q("INSERT (\"http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#hasHash\", \"http://code.google.com/p/tagont/hasTagLabel\") VALUES ('" + __pPhoto["http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#hasHash"] + "', '" + _pTagName + "');", __pOnSuccess);
+          lAffinity.q("INSERT (\"http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#hasHash\", \"http://code.google.com/p/tagont/hasTagLabel\") VALUES ('" + __pPhoto["http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#hasHash"] + "', '" + _pTagName + "');", __pOnSuccess);
         }
       };
       _lSS.push(function() { lStartTx(_lSS); });
-      _lSS.push(function() { lMvStore.qCount("SELECT * FROM \"http://localhost/mv/class/testphotos1/tag\" WHERE \"http://code.google.com/p/tagont/hasTagLabel\"='" + _pTagName + "';", function(__pE, __pR) { _lTagCount = __pR; _lSS.next(); }); });
-      _lSS.push(function() { if (0 == _lTagCount) { console.log("adding tag " + _pTagName); lMvStore.q("INSERT (\"http://code.google.com/p/tagont/hasTagLabel\") VALUES ('" + _pTagName + "');", _lSS.next); } else _lSS.next(); });
-      _lSS.push(function() { lMvStore.q("SELECT * FROM \"http://localhost/mv/class/testphotos1/photo\";", function(__pE, __pR) { var __lSS = new InstrSeq(); __pR.forEach(function(___pEl) { __lSS.push(function() { _lTagPhoto(___pEl, __lSS.next) }); }); __lSS.push(_lSS.next); __lSS.start(); }); });
+      _lSS.push(function() { lAffinity.qCount("SELECT * FROM \"http://localhost/afy/class/testphotos1/tag\" WHERE \"http://code.google.com/p/tagont/hasTagLabel\"='" + _pTagName + "';", function(__pE, __pR) { _lTagCount = __pR; _lSS.next(); }); });
+      _lSS.push(function() { if (0 == _lTagCount) { console.log("adding tag " + _pTagName); lAffinity.q("INSERT (\"http://code.google.com/p/tagont/hasTagLabel\") VALUES ('" + _pTagName + "');", _lSS.next); } else _lSS.next(); });
+      _lSS.push(function() { lAffinity.q("SELECT * FROM \"http://localhost/afy/class/testphotos1/photo\";", function(__pE, __pR) { var __lSS = new InstrSeq(); __pR.forEach(function(___pEl) { __lSS.push(function() { _lTagPhoto(___pEl, __lSS.next) }); }); __lSS.push(_lSS.next); __lSS.start(); }); });
       _lSS.push(function() { lCommitTx(_lSS); });
       _lSS.push(_pOnSuccess);
       _lSS.start();
@@ -774,7 +774,7 @@ var lTests =
       var _lOneTag = function(__pGroupId, __pTagName, __pSS)
       {
         lInMemoryChk.addGroupPrivilege(__pGroupId, __pTagName);
-        __pSS.push(function() { lMvStore.q("INSERT (\"http://code.google.com/p/tagont/hasTagLabel\", \"http://code.google.com/p/tagont/hasVisibility\") VALUES ('" + __pTagName + "', '" + __pGroupId + "');", __pSS.next); });
+        __pSS.push(function() { lAffinity.q("INSERT (\"http://code.google.com/p/tagont/hasTagLabel\", \"http://code.google.com/p/tagont/hasVisibility\") VALUES ('" + __pTagName + "', '" + __pGroupId + "');", __pSS.next); });
       }
       var _lOneIter = function(__pGroupId, __pOnSuccess)
       {
@@ -790,7 +790,7 @@ var lTests =
         __lSS.start();
       };
       _lSS.push(function() { lSelectDistinctGroups(function(__pR) { _lGroupIds = __pR.slice(0); console.log("groups: " + JSON.stringify(_lGroupIds)); _lSS.next(); }); });
-      _lSS.push(function() { lMvStore.q("SELECT * FROM \"http://localhost/mv/class/testphotos1/tag\";", function(__pE, __pR) { _lTags = __pR.slice(0); var __lTagsStr = ""; __pR.forEach(function(___pEl) { __lTagsStr = __lTagsStr + ___pEl["http://code.google.com/p/tagont/hasTagLabel"] + " "; }); console.log("tags: " + __lTagsStr); _lSS.next(); }); });
+      _lSS.push(function() { lAffinity.q("SELECT * FROM \"http://localhost/afy/class/testphotos1/tag\";", function(__pE, __pR) { _lTags = __pR.slice(0); var __lTagsStr = ""; __pR.forEach(function(___pEl) { __lTagsStr = __lTagsStr + ___pEl["http://code.google.com/p/tagont/hasTagLabel"] + " "; }); console.log("tags: " + __lTagsStr); _lSS.next(); }); });
       _lSS.push(function() { var __lSS = new InstrSeq(); _lGroupIds.forEach(function(__pEl) { __lSS.push(function() { _lOneIter(__pEl, __lSS.next); }); }); __lSS.push(_lSS.next); __lSS.start(); });
       _lSS.push(_pOnSuccess);
       _lSS.start();
@@ -802,7 +802,7 @@ var lTests =
       var _lOneTag = function(__pSS, __pUserName, __pTagName)
       {
         lInMemoryChk.addUserPrivilege(__pUserName, __pTagName);
-        __pSS.push(function() { lMvStore.q("INSERT (\"http://code.google.com/p/tagont/hasTagLabel\", \"http://code.google.com/p/tagont/hasVisibility\") VALUES ('" + __pTagName + "', '" + __pUserName + "');", __pSS.next); });
+        __pSS.push(function() { lAffinity.q("INSERT (\"http://code.google.com/p/tagont/hasTagLabel\", \"http://code.google.com/p/tagont/hasVisibility\") VALUES ('" + __pTagName + "', '" + __pUserName + "');", __pSS.next); });
       }
       var _lOneIter = function(__pUser, __pOnSuccess)
       {
@@ -818,8 +818,8 @@ var lTests =
         __lSS.push(__pOnSuccess);
         __lSS.start();
       };
-      _lSS.push(function() { lMvStore.q("SELECT * FROM \"http://localhost/mv/class/testphotos1/user\";", function(__pE, __pR) { _lUsers = __pR.slice(0); var __lUsersStr = ""; __pR.forEach(function(___pEl) { __lUsersStr = __lUsersStr + ___pEl["http://xmlns.com/foaf/0.1/mbox"] + " "; }); console.log("users: " + __lUsersStr); _lSS.next(); }); });
-      _lSS.push(function() { lMvStore.q("SELECT * FROM \"http://localhost/mv/class/testphotos1/tag\";", function(__pE, __pR) { _lTags = __pR.slice(0); var __lTagsStr = ""; __pR.forEach(function(___pEl) { __lTagsStr = __lTagsStr + ___pEl["http://code.google.com/p/tagont/hasTagLabel"] + " "; }); console.log("tags: " + __lTagsStr); _lSS.next(); }); });
+      _lSS.push(function() { lAffinity.q("SELECT * FROM \"http://localhost/afy/class/testphotos1/user\";", function(__pE, __pR) { _lUsers = __pR.slice(0); var __lUsersStr = ""; __pR.forEach(function(___pEl) { __lUsersStr = __lUsersStr + ___pEl["http://xmlns.com/foaf/0.1/mbox"] + " "; }); console.log("users: " + __lUsersStr); _lSS.next(); }); });
+      _lSS.push(function() { lAffinity.q("SELECT * FROM \"http://localhost/afy/class/testphotos1/tag\";", function(__pE, __pR) { _lTags = __pR.slice(0); var __lTagsStr = ""; __pR.forEach(function(___pEl) { __lTagsStr = __lTagsStr + ___pEl["http://code.google.com/p/tagont/hasTagLabel"] + " "; }); console.log("tags: " + __lTagsStr); _lSS.next(); }); });
       _lSS.push(function() { var __lSS = new InstrSeq(); _lUsers.forEach(function(__pEl) { __lSS.push(function() { _lOneIter(__pEl, __lSS.next); }); }); __lSS.push(_lSS.next); __lSS.start(); });
       _lSS.push(_pOnSuccess);
       _lSS.start();
@@ -827,11 +827,11 @@ var lTests =
     var lGetUsersOfInterest = function(_pTags, _pOnSuccess) // Find users who can see the first 5 of the specified tags (asynchronous).
     {
       var _lFirstTags = new Array(); _pTags.slice(0, 1).forEach(function(__pEl) { _lFirstTags.push("'" + __pEl["http://code.google.com/p/tagont/hasTagLabel"] + "'"); });
-      lMvStore.q(
+      lAffinity.q(
         // TODO: Review this query once bug #202 is sorted out.
-        //"SELECT * FROM \"http://localhost/mv/class/testphotos1/user\" AS u JOIN \"http://localhost/mv/class/testphotos1/privilege\" AS p ON (u.\"http://xmlns.com/foaf/0.1/mbox\" = p.\"http://code.google.com/p/tagont/hasVisibility\") WHERE p.\"http://code.google.com/p/tagont/hasTagLabel\" IN (" + _lFirstTags + ");",
-        //"SELECT * FROM \"http://localhost/mv/class/testphotos1/privilege\" AS p JOIN \"http://localhost/mv/class/testphotos1/user\" AS u ON (p.\"http://code.google.com/p/tagont/hasVisibility\" = u.\"http://xmlns.com/foaf/0.1/mbox\") WHERE p.\"http://code.google.com/p/tagont/hasTagLabel\" IN (" + _lFirstTags + ");",
-        "SELECT * FROM \"http://localhost/mv/class/testphotos1/privilege\"(" + _lFirstTags.join(',') + ") AS p JOIN \"http://localhost/mv/class/testphotos1/user\" AS u ON (p.\"http://code.google.com/p/tagont/hasVisibility\" = u.\"http://xmlns.com/foaf/0.1/mbox\");",
+        //"SELECT * FROM \"http://localhost/afy/class/testphotos1/user\" AS u JOIN \"http://localhost/afy/class/testphotos1/privilege\" AS p ON (u.\"http://xmlns.com/foaf/0.1/mbox\" = p.\"http://code.google.com/p/tagont/hasVisibility\") WHERE p.\"http://code.google.com/p/tagont/hasTagLabel\" IN (" + _lFirstTags + ");",
+        //"SELECT * FROM \"http://localhost/afy/class/testphotos1/privilege\" AS p JOIN \"http://localhost/afy/class/testphotos1/user\" AS u ON (p.\"http://code.google.com/p/tagont/hasVisibility\" = u.\"http://xmlns.com/foaf/0.1/mbox\") WHERE p.\"http://code.google.com/p/tagont/hasTagLabel\" IN (" + _lFirstTags + ");",
+        "SELECT * FROM \"http://localhost/afy/class/testphotos1/privilege\"(" + _lFirstTags.join(',') + ") AS p JOIN \"http://localhost/afy/class/testphotos1/user\" AS u ON (p.\"http://code.google.com/p/tagont/hasVisibility\" = u.\"http://xmlns.com/foaf/0.1/mbox\");",
         function(__pE, __pR)
         {
           var __lUOINames = new Array(); if (__pR) { __pR.forEach(function(___pEl) { __lUOINames.push(___pEl["http://code.google.com/p/tagont/hasVisibility"]); }); }
@@ -846,8 +846,8 @@ var lTests =
       _lSS.push( // Check user privileges.
         function()
         {
-          lMvStore.q(
-            "SELECT * FROM \"http://localhost/mv/class/testphotos1/privilege\" WHERE \"http://code.google.com/p/tagont/hasVisibility\"='" + _pUserName + "';",
+          lAffinity.q(
+            "SELECT * FROM \"http://localhost/afy/class/testphotos1/privilege\" WHERE \"http://code.google.com/p/tagont/hasVisibility\"='" + _pUserName + "';",
             function(__pE, __pR)
             {
               var __lExpected_usPriv = lInMemoryChk.getTags_usPriv(_pUserName).sort();
@@ -862,8 +862,8 @@ var lTests =
       _lSS.push( // Check group privileges.
         function()
         {
-          lMvStore.q(
-            "SELECT * FROM \"http://localhost/mv/class/testphotos1/privilege\" AS p JOIN \"http://localhost/mv/class/testphotos1/user\"('" + _pUserName + "') AS u ON (p.\"http://code.google.com/p/tagont/hasVisibility\" = u.\"http://xmlns.com/foaf/0.1/member/adomain:Group\");",
+          lAffinity.q(
+            "SELECT * FROM \"http://localhost/afy/class/testphotos1/privilege\" AS p JOIN \"http://localhost/afy/class/testphotos1/user\"('" + _pUserName + "') AS u ON (p.\"http://code.google.com/p/tagont/hasVisibility\" = u.\"http://xmlns.com/foaf/0.1/member/adomain:Group\");",
             function(__pE, __pR)
             {
               var __lExpectedTags = lInMemoryChk.getUserTags(_pUserName).sort();
@@ -880,8 +880,8 @@ var lTests =
         function()
         {
           var __lTags = new Array(); Object.keys(_lTags).forEach(function(___pEl) { __lTags.push("'" + ___pEl + "'"); });
-          lMvStore.q(
-            "SELECT * FROM \"http://localhost/mv/class/testphotos1/photo\" AS p JOIN \"http://localhost/mv/class/testphotos1/tagging\" AS t ON (p.\"http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#hasHash\" = t.\"http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#hasHash\") WHERE t.\"http://code.google.com/p/tagont/hasTagLabel\" IN (" + __lTags.join(',') + ");",
+          lAffinity.q(
+            "SELECT * FROM \"http://localhost/afy/class/testphotos1/photo\" AS p JOIN \"http://localhost/afy/class/testphotos1/tagging\" AS t ON (p.\"http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#hasHash\" = t.\"http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#hasHash\") WHERE t.\"http://code.google.com/p/tagont/hasTagLabel\" IN (" + __lTags.join(',') + ");",
             function(__pE, __pR)
             {
               __pR.forEach(function(___pEl){ _lUniquePhotos[___pEl["http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#hasHash"]] = 1; });
@@ -901,22 +901,22 @@ var lTests =
     };
     var lClassesExist = false;
     var lOnSelectClasses = function(pError, pResponse) { console.log("substep " + lSS.curstep()); if (pError) console.log("\n*** ERROR: " + pError + "\n"); else { console.log("Result from step " + lSS.curstep() + ":" + JSON.stringify(pResponse)); lClassesExist = (pResponse && pResponse.length > 0); lSS.next(); } }
-    lSS.push(function() { console.log("Creating classes."); lMvStore.q("SELECT * FROM afy:ClassOfClasses WHERE BEGINS(afy:classID, 'http://localhost/mv/class/testphotos1/');", lOnSelectClasses); });
-    lSS.push(function() { if (lClassesExist) lSS.next(); else lMvStore.q("CREATE CLASS \"http://localhost/mv/class/testphotos1/photo\" AS SELECT * WHERE \"http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#hasHash\" IN :0 AND EXISTS(\"http://www.w3.org/2001/XMLSchema#date\") AND EXISTS(\"http://www.w3.org/2001/XMLSchema#time\") AND EXISTS(\"http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#fileUrl\") AND EXISTS (\"http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#fileName\");", lSS.simpleOnResponse); });
-    lSS.push(function() { if (lClassesExist) lSS.next(); else lMvStore.q("CREATE CLASS \"http://localhost/mv/class/testphotos1/tag\" AS SELECT * WHERE \"http://code.google.com/p/tagont/hasTagLabel\" in :0 AND NOT EXISTS(\"http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#hasHash\") AND NOT EXISTS(\"http://code.google.com/p/tagont/hasVisibility\");", lSS.simpleOnResponse); });
-    lSS.push(function() { if (lClassesExist) lSS.next(); else lMvStore.q("CREATE CLASS \"http://localhost/mv/class/testphotos1/tagging\" AS SELECT * WHERE EXISTS(\"http://code.google.com/p/tagont/hasTagLabel\") AND \"http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#hasHash\" in :0;", lSS.simpleOnResponse); });
-    lSS.push(function() { if (lClassesExist) lSS.next(); else lMvStore.q("CREATE CLASS \"http://localhost/mv/class/testphotos1/user\" AS SELECT * WHERE \"http://xmlns.com/foaf/0.1/mbox\" in :0 AND EXISTS(\"http://www.w3.org/2002/01/p3prdfv1#user.login.password\") AND EXISTS(\"http://xmlns.com/foaf/0.1/member/adomain:Group\");", lSS.simpleOnResponse); });
-    lSS.push(function() { if (lClassesExist) lSS.next(); else lMvStore.q("CREATE CLASS \"http://localhost/mv/class/testphotos1/privilege\" AS SELECT * WHERE \"http://code.google.com/p/tagont/hasTagLabel\" in :0 AND EXISTS(\"http://code.google.com/p/tagont/hasVisibility\");", lSS.simpleOnResponse); });
-    lSS.push(function() { console.log("Deleting old data."); lMvStore.q("DELETE FROM \"http://localhost/mv/class/testphotos1/photo\";", lSS.simpleOnResponse); });
-    lSS.push(function() { lMvStore.q("DELETE FROM \"http://localhost/mv/class/testphotos1/tag\";", lSS.simpleOnResponse); });
-    lSS.push(function() { lMvStore.q("DELETE FROM \"http://localhost/mv/class/testphotos1/tagging\";", lSS.simpleOnResponse); });
-    lSS.push(function() { lMvStore.q("DELETE FROM \"http://localhost/mv/class/testphotos1/user\";", lSS.simpleOnResponse); });
-    lSS.push(function() { lMvStore.q("DELETE FROM \"http://localhost/mv/class/testphotos1/privilege\";", lSS.simpleOnResponse); });
+    lSS.push(function() { console.log("Creating classes."); lAffinity.q("SELECT * FROM afy:ClassOfClasses WHERE BEGINS(afy:classID, 'http://localhost/afy/class/testphotos1/');", lOnSelectClasses); });
+    lSS.push(function() { if (lClassesExist) lSS.next(); else lAffinity.q("CREATE CLASS \"http://localhost/afy/class/testphotos1/photo\" AS SELECT * WHERE \"http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#hasHash\" IN :0 AND EXISTS(\"http://www.w3.org/2001/XMLSchema#date\") AND EXISTS(\"http://www.w3.org/2001/XMLSchema#time\") AND EXISTS(\"http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#fileUrl\") AND EXISTS (\"http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#fileName\");", lSS.simpleOnResponse); });
+    lSS.push(function() { if (lClassesExist) lSS.next(); else lAffinity.q("CREATE CLASS \"http://localhost/afy/class/testphotos1/tag\" AS SELECT * WHERE \"http://code.google.com/p/tagont/hasTagLabel\" in :0 AND NOT EXISTS(\"http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#hasHash\") AND NOT EXISTS(\"http://code.google.com/p/tagont/hasVisibility\");", lSS.simpleOnResponse); });
+    lSS.push(function() { if (lClassesExist) lSS.next(); else lAffinity.q("CREATE CLASS \"http://localhost/afy/class/testphotos1/tagging\" AS SELECT * WHERE EXISTS(\"http://code.google.com/p/tagont/hasTagLabel\") AND \"http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#hasHash\" in :0;", lSS.simpleOnResponse); });
+    lSS.push(function() { if (lClassesExist) lSS.next(); else lAffinity.q("CREATE CLASS \"http://localhost/afy/class/testphotos1/user\" AS SELECT * WHERE \"http://xmlns.com/foaf/0.1/mbox\" in :0 AND EXISTS(\"http://www.w3.org/2002/01/p3prdfv1#user.login.password\") AND EXISTS(\"http://xmlns.com/foaf/0.1/member/adomain:Group\");", lSS.simpleOnResponse); });
+    lSS.push(function() { if (lClassesExist) lSS.next(); else lAffinity.q("CREATE CLASS \"http://localhost/afy/class/testphotos1/privilege\" AS SELECT * WHERE \"http://code.google.com/p/tagont/hasTagLabel\" in :0 AND EXISTS(\"http://code.google.com/p/tagont/hasVisibility\");", lSS.simpleOnResponse); });
+    lSS.push(function() { console.log("Deleting old data."); lAffinity.q("DELETE FROM \"http://localhost/afy/class/testphotos1/photo\";", lSS.simpleOnResponse); });
+    lSS.push(function() { lAffinity.q("DELETE FROM \"http://localhost/afy/class/testphotos1/tag\";", lSS.simpleOnResponse); });
+    lSS.push(function() { lAffinity.q("DELETE FROM \"http://localhost/afy/class/testphotos1/tagging\";", lSS.simpleOnResponse); });
+    lSS.push(function() { lAffinity.q("DELETE FROM \"http://localhost/afy/class/testphotos1/user\";", lSS.simpleOnResponse); });
+    lSS.push(function() { lAffinity.q("DELETE FROM \"http://localhost/afy/class/testphotos1/privilege\";", lSS.simpleOnResponse); });
     var lCntPhotos = 0;
     lSS.push(function() { console.log("Creating a few photos."); lStartTx(lSS); });
-    lSS.push(function() { var _lFiles = lWalkDir("../../tests", ".cpp"); lCntPhotos = _lFiles.length; var _lSS = new InstrSeq(); _lFiles.forEach(function(__pEl) { _lSS.push(function() { lCreatePhoto(__pEl.dirname, __pEl.filename, _lSS.next); }); } ); _lSS.push(lSS.next); _lSS.start(); });
+    lSS.push(function() { var _lFiles = lWalkDir("../../tests_kernel", ".cpp"); lCntPhotos = _lFiles.length; var _lSS = new InstrSeq(); _lFiles.forEach(function(__pEl) { _lSS.push(function() { lCreatePhoto(__pEl.dirname, __pEl.filename, _lSS.next); }); } ); _lSS.push(lSS.next); _lSS.start(); });
     lSS.push(function() { lCommitTx(lSS); });
-    lSS.push(function() { lMvStore.qCount("SELECT * FROM \"http://localhost/mv/class/testphotos1/photo\";", function(_pE, _pR) { lChkCount("photos", lCntPhotos, _pR); lSS.next(); }); });
+    lSS.push(function() { lAffinity.qCount("SELECT * FROM \"http://localhost/afy/class/testphotos1/photo\";", function(_pE, _pR) { lChkCount("photos", lCntPhotos, _pR); lSS.next(); }); });
     var lSomeTags = ["cousin_vinny", "uncle_buck", "sister_suffragette", "country", "city", "zoo", "mountain_2010", "ocean_2004", "Beijing_1999", "Montreal_2003", "LasVegas_2007", "Fred", "Alice", "sceneries", "artwork"];
     lSS.push(function() { console.log("Creating a few tags."); lStartTx(lSS); });
     lSomeTags.forEach(function(_pTag) { lSS.push(function() { lAssignTagRandomly(_pTag, lSS.next); }); });
@@ -927,13 +927,13 @@ var lTests =
     lUsers.forEach(function(_pUser) { lSS.push(function() { var _lGroup = lGroups[Math.floor(Math.random() * lGroups.length)]; lCreateUser(_pUser, _lGroup, lSS.next); }); });
     lSS.push(function() { lCommitTx(lSS); });
     var lActualUserCount = 0;
-    lSS.push(function() { lMvStore.qCount("SELECT * FROM \"http://localhost/mv/class/testphotos1/user\";", function(_pE, _pR) { lChkCount("users", lUsers.length, _pR); lSS.next(); }); });
+    lSS.push(function() { lAffinity.qCount("SELECT * FROM \"http://localhost/afy/class/testphotos1/user\";", function(_pE, _pR) { lChkCount("users", lUsers.length, _pR); lSS.next(); }); });
     lSS.push(function() { lSelectDistinctGroups(function(_pR) { lChkCount("groups", lGroups.length, _pR.length); lSS.next() }); });
     lSS.push(function() { lAssignGroupPrivilegesRandomly(lSS.next); });
     lSS.push(function() { lAssignUserPrivilegesRandomly(lSS.next); });
-    lSS.push(function() { lMvStore.qCount("SELECT * FROM \"http://localhost/mv/class/testphotos1/privilege\";", function(_pE, _pR) { console.log(_pR + " privileges assigned."); lSS.next(); }); });
+    lSS.push(function() { lAffinity.qCount("SELECT * FROM \"http://localhost/afy/class/testphotos1/privilege\";", function(_pE, _pR) { console.log(_pR + " privileges assigned."); lSS.next(); }); });
     var lTags = null, lUsersOfInterest = null;
-    lSS.push(function() { lMvStore.q("SELECT * FROM \"http://localhost/mv/class/testphotos1/tag\";", function(_pE, _pR) { lTags = _pR.slice(0); lSS.next(); }); });
+    lSS.push(function() { lAffinity.q("SELECT * FROM \"http://localhost/afy/class/testphotos1/tag\";", function(_pE, _pR) { lTags = _pR.slice(0); lSS.next(); }); });
     lSS.push(function() { lGetUsersOfInterest(lTags, function(_pR){ lUsersOfInterest = _pR != null ? _pR.slice(0) : []; lSS.next(); }); });
     lSS.push(function() { var _lSS = new InstrSeq(); lUsersOfInterest.forEach(function(_pEl){ _lSS.push(function(){ lCountUserPhotos(_pEl["http://code.google.com/p/tagont/hasVisibility"], _lSS.next); }); }); _lSS.push(lSS.next); _lSS.start(); });
     lSS.push(function() { console.log("done."); pOnSuccess(); });
@@ -1002,16 +1002,16 @@ var lTests =
       var _lCount = 0;
       return {punch:function() { _lCount++; if (_lCount == _pMaxCount) { _pCallback(); } else { lib_assert.ok(_lCount < _pMaxCount); } }};
     }
-    var lStartTx = function(_pSS) { if (lMvStore.keptAlive()) { lMvStore.q("START TRANSACTION;", _pSS.next); } else { _pSS.next(); } }
-    var lCommitTx = function(_pSS) { if (lMvStore.keptAlive()) { lMvStore.q("COMMIT;", _pSS.next); } else { _pSS.next(); } }
+    var lStartTx = function(_pSS) { if (lAffinity.keptAlive()) { lAffinity.q("START TRANSACTION;", _pSS.next); } else { _pSS.next(); } }
+    var lCommitTx = function(_pSS) { if (lAffinity.keptAlive()) { lAffinity.q("COMMIT;", _pSS.next); } else { _pSS.next(); } }
     var lWritePercent = function(_pPercent) { var _lV = _pPercent.toFixed(0); for (var _i = 0; _i < _lV.length + 1; _i++) { process.stdout.write("\b"); } process.stdout.write("" + _pPercent.toFixed(0) + "%"); }
 
     // Declaration of classes.
     var lClassesExist = false;
     var lOnSelectClasses = function(pError, pResponse) { console.log("substep " + lSS.curstep()); if (pError) console.log("\n*** ERROR: " + pError + "\n"); else { console.log("Result from step " + lSS.curstep() + ":" + JSON.stringify(pResponse)); lClassesExist = (pResponse && pResponse.length > 0); lSS.next(); } }
-    lSS.push(function() { console.log("Creating classes."); lMvStore.q("SELECT * FROM afy:ClassOfClasses WHERE BEGINS(afy:classID, 'http://localhost/mv/class/benchgraph1/');", lOnSelectClasses); });
-    lSS.push(function() { if (lClassesExist) lSS.next(); else lMvStore.q("CREATE CLASS \"http://localhost/mv/class/benchgraph1/orgid\" AS SELECT * WHERE \"http://localhost/mv/property/benchgraph1/orgid\" IN :0;", lSS.simpleOnResponse); });
-    lSS.push(function() { if (lClassesExist) lSS.next(); else lMvStore.q("CREATE CLASS \"http://localhost/mv/class/benchgraph1/fid\" AS SELECT * WHERE \"http://localhost/mv/property/benchgraph1/fid\" in :0;", lSS.simpleOnResponse); });
+    lSS.push(function() { console.log("Creating classes."); lAffinity.q("SELECT * FROM afy:ClassOfClasses WHERE BEGINS(afy:classID, 'http://localhost/afy/class/benchgraph1/');", lOnSelectClasses); });
+    lSS.push(function() { if (lClassesExist) lSS.next(); else lAffinity.q("CREATE CLASS \"http://localhost/afy/class/benchgraph1/orgid\" AS SELECT * WHERE \"http://localhost/afy/property/benchgraph1/orgid\" IN :0;", lSS.simpleOnResponse); });
+    lSS.push(function() { if (lClassesExist) lSS.next(); else lAffinity.q("CREATE CLASS \"http://localhost/afy/class/benchgraph1/fid\" AS SELECT * WHERE \"http://localhost/afy/property/benchgraph1/fid\" in :0;", lSS.simpleOnResponse); });
 
     // Definition of input files.
     var lPeopleLineCount = 0, lProjectsLineCount = 0, lPhotosLineCount = 0;
@@ -1042,8 +1042,8 @@ var lTests =
             var _lM = _pLine.match(/^\(([0-9]+)\s+\'([A-Za-z\s]+)\'\s+\'([A-Za-z\s]+)\'\s+\'([A-Za-z\s]+)\'\s+\'([A-Za-z\-\s]+)\'\s+\'([A-Za-z\s]+)\'\s+\'([A-Z][0-9][A-Z]\s+[0-9][A-Z][0-9])\'/)
             if (undefined != _lM)
             {
-              lMvStore.q(
-                "INSERT (\"http://localhost/mv/property/benchgraph1/orgid\", \"http://localhost/mv/property/benchgraph1/firstname\", \"http://localhost/mv/property/benchgraph1/middlename\", \"http://localhost/mv/property/benchgraph1/lastname\", \"http://localhost/mv/property/benchgraph1/occupation\", \"http://localhost/mv/property/benchgraph1/country\", \"http://localhost/mv/property/benchgraph1/postalcode\") VALUES (" +
+              lAffinity.q(
+                "INSERT (\"http://localhost/afy/property/benchgraph1/orgid\", \"http://localhost/afy/property/benchgraph1/firstname\", \"http://localhost/afy/property/benchgraph1/middlename\", \"http://localhost/afy/property/benchgraph1/lastname\", \"http://localhost/afy/property/benchgraph1/occupation\", \"http://localhost/afy/property/benchgraph1/country\", \"http://localhost/afy/property/benchgraph1/postalcode\") VALUES (" +
                 _lM[1] + ", '" +
                 _lM[2] + "', '" + _lM[3] + "', '" + _lM[4] + "', '" +
                 _lM[5] + "', '" + _lM[6] + "', '" + _lM[7] + "');", _lHub.punch());
@@ -1075,7 +1075,7 @@ var lTests =
               var __lPID1;
               var __lSS = new InstrSeq();
               var __lHub = lParallelExecHub(__lRefs.length, __lSS.next);
-              __lSS.push(function() { lMvStore.q("SELECT * FROM \"http://localhost/mv/class/benchgraph1/orgid\"(" + __lM[1] + ");", function(__pE, __pR) { __lPID1 = __pR[0].id; __lSS.next() }); });
+              __lSS.push(function() { lAffinity.q("SELECT * FROM \"http://localhost/afy/class/benchgraph1/orgid\"(" + __lM[1] + ");", function(__pE, __pR) { __lPID1 = __pR[0].id; __lSS.next() }); });
               __lSS.push(
                 function()
                 {
@@ -1086,8 +1086,8 @@ var lTests =
                       {
                         var ___lPID2;
                         var ___lSS = new InstrSeq();
-                        ___lSS.push(function() { lMvStore.q("SELECT * FROM \"http://localhost/mv/class/benchgraph1/orgid\"(" + __lRefs[___iR] + ");", function(___pE, ___pR) { ___lPID2 = ___pR[0].id; ___lSS.next() }); });
-                        ___lSS.push(function() { lRelCount++; lMvStore.q("UPDATE @" + __lPID1.toString(16) + " ADD \"http://localhost/mv/property/benchgraph1/friendof\"=@" + ___lPID2.toString(16) + ";", __lHub.punch); });
+                        ___lSS.push(function() { lAffinity.q("SELECT * FROM \"http://localhost/afy/class/benchgraph1/orgid\"(" + __lRefs[___iR] + ");", function(___pE, ___pR) { ___lPID2 = ___pR[0].id; ___lSS.next() }); });
+                        ___lSS.push(function() { lRelCount++; lAffinity.q("UPDATE @" + __lPID1.toString(16) + " ADD \"http://localhost/afy/property/benchgraph1/friendof\"=@" + ___lPID2.toString(16) + ";", __lHub.punch); });
                         ___lSS.start();
                       };
                     ___lIter();
@@ -1099,7 +1099,7 @@ var lTests =
                 {
                   for (var ___iR = 0; ___iR < __lRefs.length; ___iR++)
                   {
-                    lMvStore.q("UPDATE @" + __lPID1.toString(16) + " ADD \"http://localhost/mv/property/benchgraph1/friendof\"=(SELECT * FROM \"http://localhost/mv/class/benchgraph1/orgid\"(" + __lRefs[___iR] + "));", __lHub.punch());
+                    lAffinity.q("UPDATE @" + __lPID1.toString(16) + " ADD \"http://localhost/afy/property/benchgraph1/friendof\"=(SELECT * FROM \"http://localhost/afy/class/benchgraph1/orgid\"(" + __lRefs[___iR] + "));", __lHub.punch());
                     lRelCount++;
                   }
                 });
@@ -1136,8 +1136,8 @@ var lTests =
                 function()
                 {
                   // Create the new project.
-                  lMvStore.q(
-                    "INSERT (\"http://localhost/mv/property/benchgraph1/fid\", \"http://localhost/mv/property/benchgraph1/fname\", \"http://localhost/mv/property/benchgraph1/access\") VALUES (" +
+                  lAffinity.q(
+                    "INSERT (\"http://localhost/afy/property/benchgraph1/fid\", \"http://localhost/afy/property/benchgraph1/fname\", \"http://localhost/afy/property/benchgraph1/access\") VALUES (" +
                     _lM[1] + ", '" +
                     _lM[2] + "', " +
                     _lM[4] + ");", function(__pE, __pR) { __lPIDNewProject = __pR[0].id; __lSS.next() });
@@ -1146,24 +1146,24 @@ var lTests =
               {
                 // If the new project is a root project, retrieve its root owner and link to it.
                 var __lPIDOwner;
-                __lSS.push(function() { lMvStore.q("SELECT * FROM \"http://localhost/mv/class/benchgraph1/orgid\"(" + _lM[4] + ");", function(___pE, ___pR) { __lPIDOwner = ___pR[0].id; __lSS.next() }); });
+                __lSS.push(function() { lAffinity.q("SELECT * FROM \"http://localhost/afy/class/benchgraph1/orgid\"(" + _lM[4] + ");", function(___pE, ___pR) { __lPIDOwner = ___pR[0].id; __lSS.next() }); });
                 __lSS.push(
                   function()
                   {
-                    lMvStore.q(
-                      "UPDATE @" + __lPIDOwner.toString(16) + " SET \"http://localhost/mv/property/benchgraph1/rootproject\"=@" + __lPIDNewProject.toString(16) + ";", __lSS.next);
+                    lAffinity.q(
+                      "UPDATE @" + __lPIDOwner.toString(16) + " SET \"http://localhost/afy/property/benchgraph1/rootproject\"=@" + __lPIDNewProject.toString(16) + ";", __lSS.next);
                   });
               }
               else
               {
                 // If the new project is not a root project, link it to its parent.
                 var __lPIDParentProject;
-                __lSS.push(function() { lMvStore.q("SELECT * FROM \"http://localhost/mv/class/benchgraph1/fid\"(" + _lM[3] + ");", function(___pE, ___pR) { __lPIDParentProject = ___pR[0].id; __lSS.next() }); });
+                __lSS.push(function() { lAffinity.q("SELECT * FROM \"http://localhost/afy/class/benchgraph1/fid\"(" + _lM[3] + ");", function(___pE, ___pR) { __lPIDParentProject = ___pR[0].id; __lSS.next() }); });
                 __lSS.push(
                   function()
                   {
-                    lMvStore.q(
-                      "UPDATE @" + __lPIDParentProject.toString(16) + " ADD \"http://localhost/mv/property/benchgraph1/children\"=@" + __lPIDNewProject.toString(16) + ";", __lSS.next);
+                    lAffinity.q(
+                      "UPDATE @" + __lPIDParentProject.toString(16) + " ADD \"http://localhost/afy/property/benchgraph1/children\"=@" + __lPIDNewProject.toString(16) + ";", __lSS.next);
                   });
               }
               __lSS.push(function() { lWritePercent(100.0 * _pLineCount / lProjectsLineCount); __lSS.next(); });
@@ -1198,17 +1198,17 @@ var lTests =
                 function()
                 {
                   // Create the new photo.
-                  lMvStore.q(
-                    "INSERT (\"http://localhost/mv/property/benchgraph1/fid\", \"http://localhost/mv/property/benchgraph1/pname\") VALUES (" +
+                  lAffinity.q(
+                    "INSERT (\"http://localhost/afy/property/benchgraph1/fid\", \"http://localhost/afy/property/benchgraph1/pname\") VALUES (" +
                     _lM[1] + ", '" +
                     _lM[2] + "');", function(__pE, __pR) { __lPIDNewPhoto = __pR[0].id; __lSS.next() });
                 });
-              __lSS.push(function() { lMvStore.q("SELECT * FROM \"http://localhost/mv/class/benchgraph1/fid\"(" + _lM[3] + ");", function(___pE, ___pR) { __lPIDParent = ___pR[0].id; __lSS.next() }); });
+              __lSS.push(function() { lAffinity.q("SELECT * FROM \"http://localhost/afy/class/benchgraph1/fid\"(" + _lM[3] + ");", function(___pE, ___pR) { __lPIDParent = ___pR[0].id; __lSS.next() }); });
               __lSS.push(
                 function()
                 {
-                  lMvStore.q(
-                    "UPDATE @" + __lPIDParent.toString(16) + " ADD \"http://localhost/mv/property/benchgraph1/children\"=@" + __lPIDNewPhoto.toString(16) + ";", __lSS.next);
+                  lAffinity.q(
+                    "UPDATE @" + __lPIDParent.toString(16) + " ADD \"http://localhost/afy/property/benchgraph1/children\"=@" + __lPIDNewPhoto.toString(16) + ";", __lSS.next);
                 });
               __lSS.push(function() { lWritePercent(100.0 * _pLineCount / lPhotosLineCount); __lSS.next(); });
               __lSS.push(_pNextLine);
@@ -1234,8 +1234,8 @@ var lTests =
     lSS.push(
       function()
       {
-        lMvStore.qProto(
-          "SELECT * FROM \"http://localhost/mv/class/benchgraph1/orgid\";",
+        lAffinity.qProto(
+          "SELECT * FROM \"http://localhost/afy/class/benchgraph1/orgid\";",
           function(_pE, _pR)
           {
             lNumPeople = _pR.length;
@@ -1248,8 +1248,8 @@ var lTests =
     // Helper for breadth-first search, with full trace of the solution.
     function BFSearchCtx(pStartOrgid, pEndOrgid, pCallback)
     {
-      var _mStartOrgid = pStartOrgid; // The starting value of http://localhost/mv/property/benchgraph1/orgid.
-      var _mEndOrgid = pEndOrgid; // The target value of http://localhost/mv/property/benchgraph1/orgid.
+      var _mStartOrgid = pStartOrgid; // The starting value of http://localhost/afy/property/benchgraph1/orgid.
+      var _mEndOrgid = pEndOrgid; // The target value of http://localhost/afy/property/benchgraph1/orgid.
       var _mFinalCallback = pCallback; // The final callback to invoke when a solution is found or when no solution can be found.
       var _mBwHops = {}; // A dictionary of backword hops (how did we reach B? from A).
       var _mNextLevel = []; // An array of PINs to visit next time we recurse one level deeper.
@@ -1271,15 +1271,15 @@ var lTests =
           function()
           {
             if (_mFound) { return; }
-            lMvStore.qProto(
-              "SELECT * FROM @" + _pPIN.pid.toString(16) + ".\"http://localhost/mv/property/benchgraph1/friendof\";",
+            lAffinity.qProto(
+              "SELECT * FROM @" + _pPIN.pid.toString(16) + ".\"http://localhost/afy/property/benchgraph1/friendof\";",
               function(__pE, __pR)
               {
-                var __lFromOrgid = _pPIN.get("http://localhost/mv/property/benchgraph1/orgid");
+                var __lFromOrgid = _pPIN.get("http://localhost/afy/property/benchgraph1/orgid");
                 for (var __iP = 0; __iP < __pR.length; __iP++)
                 {
                   var __lP = __pR[__iP];
-                  var __lToOrgid = __lP.get("http://localhost/mv/property/benchgraph1/orgid");
+                  var __lToOrgid = __lP.get("http://localhost/afy/property/benchgraph1/orgid");
                   if (__lToOrgid == _mEndOrgid)
                   {
                     _mFound = true;
@@ -1299,7 +1299,7 @@ var lTests =
         /*
         var __lTrace = "";
         for (var __j = 0; __j < _pPINs.length; __j++)
-          __lTrace += _pPINs[__j].get("http://localhost/mv/property/benchgraph1/orgid") + " ";        
+          __lTrace += _pPINs[__j].get("http://localhost/afy/property/benchgraph1/orgid") + " ";        
         console.log("level " + _pLevel + ": " + __lTrace);
         */
 
@@ -1325,8 +1325,8 @@ var lTests =
         __lSS.push(
           function()
           {
-            lMvStore.qProto(
-              "SELECT * FROM \"http://localhost/mv/class/benchgraph1/orgid\"(" + _mStartOrgid + ");",
+            lAffinity.qProto(
+              "SELECT * FROM \"http://localhost/afy/class/benchgraph1/orgid\"(" + _mStartOrgid + ");",
               function(_pE, _pR)
               {
                 assertValidResult(_pR);
@@ -1387,11 +1387,11 @@ var lTests =
             _lSS.push(
               function()
               {
-                lMvStore.q(
-                  "SELECT * FROM @" + _pP.pid.toString(16) + ".\"http://localhost/mv/property/benchgraph1/friendof\".\"http://localhost/mv/property/benchgraph1/friendof\"[@ <> @" + _pP.pid.toString(16) + "];",
+                lAffinity.q(
+                  "SELECT * FROM @" + _pP.pid.toString(16) + ".\"http://localhost/afy/property/benchgraph1/friendof\".\"http://localhost/afy/property/benchgraph1/friendof\"[@ <> @" + _pP.pid.toString(16) + "];",
                   function(__pE, __pR)
                   {
-                    console.log("" + __pR.length + " people have friends in common with " + _pP.get("http://localhost/mv/property/benchgraph1/firstname") + " " + _pP.get("http://localhost/mv/property/benchgraph1/middlename") + " " + _pP.get("http://localhost/mv/property/benchgraph1/lastname"));
+                    console.log("" + __pR.length + " people have friends in common with " + _pP.get("http://localhost/afy/property/benchgraph1/firstname") + " " + _pP.get("http://localhost/afy/property/benchgraph1/middlename") + " " + _pP.get("http://localhost/afy/property/benchgraph1/lastname"));
                     _lSS.next();
                   });
               });
@@ -1413,11 +1413,11 @@ var lTests =
             _lSS.push(
               function()
               {
-                lMvStore.q(
-                  "SELECT * FROM @" + _pP.pid.toString(16) + ".\"http://localhost/mv/property/benchgraph1/rootproject\".\"http://localhost/mv/property/benchgraph1/children\"{*}[exists(\"http://localhost/mv/property/benchgraph1/pname\")];",
+                lAffinity.q(
+                  "SELECT * FROM @" + _pP.pid.toString(16) + ".\"http://localhost/afy/property/benchgraph1/rootproject\".\"http://localhost/afy/property/benchgraph1/children\"{*}[exists(\"http://localhost/afy/property/benchgraph1/pname\")];",
                   function(__pE, __pR)
                   {
-                    console.log(_pP.get("http://localhost/mv/property/benchgraph1/firstname") + " " + _pP.get("http://localhost/mv/property/benchgraph1/middlename") + " " + _pP.get("http://localhost/mv/property/benchgraph1/lastname") + " has projects containing " + __pR.length + " photos");
+                    console.log(_pP.get("http://localhost/afy/property/benchgraph1/firstname") + " " + _pP.get("http://localhost/afy/property/benchgraph1/middlename") + " " + _pP.get("http://localhost/afy/property/benchgraph1/lastname") + " has projects containing " + __pR.length + " photos");
                     _lSS.next();
                   });
               });
@@ -1439,11 +1439,11 @@ var lTests =
             _lSS.push(
               function()
               {
-                lMvStore.q(
-                  "SELECT * FROM @" + _pP.pid.toString(16) + ".\"http://localhost/mv/property/benchgraph1/friendof\".\"http://localhost/mv/property/benchgraph1/rootproject\".\"http://localhost/mv/property/benchgraph1/children\"{*}[\"http://localhost/mv/property/benchgraph1/access\"=" + _pP.get("http://localhost/mv/property/benchgraph1/orgid") + "].\"http://localhost/mv/property/benchgraph1/children\"[exists(\"http://localhost/mv/property/benchgraph1/pname\")];",
+                lAffinity.q(
+                  "SELECT * FROM @" + _pP.pid.toString(16) + ".\"http://localhost/afy/property/benchgraph1/friendof\".\"http://localhost/afy/property/benchgraph1/rootproject\".\"http://localhost/afy/property/benchgraph1/children\"{*}[\"http://localhost/afy/property/benchgraph1/access\"=" + _pP.get("http://localhost/afy/property/benchgraph1/orgid") + "].\"http://localhost/afy/property/benchgraph1/children\"[exists(\"http://localhost/afy/property/benchgraph1/pname\")];",
                   function(__pE, __pR)
                   {
-                    console.log(_pP.get("http://localhost/mv/property/benchgraph1/firstname") + " " + _pP.get("http://localhost/mv/property/benchgraph1/middlename") + " " + _pP.get("http://localhost/mv/property/benchgraph1/lastname") + " has access to " + __pR.length + " photos shared by friends");
+                    console.log(_pP.get("http://localhost/afy/property/benchgraph1/firstname") + " " + _pP.get("http://localhost/afy/property/benchgraph1/middlename") + " " + _pP.get("http://localhost/afy/property/benchgraph1/lastname") + " has access to " + __pR.length + " photos shared by friends");
                     _lSS.next();
                   });
               });
@@ -1477,7 +1477,7 @@ var lTests =
 
     // Proceed with the test: save lO1 and lO2 as full native js objects (with methods, prototypes etc.).
     var lSS = new InstrSeq();
-    lSS.push(function() { lMvStore.saveNativeJS([lO1, lO2], lSS.next); });
+    lSS.push(function() { lAffinity.saveNativeJS([lO1, lO2], lSS.next); });
     lSS.push(function() { console.log("done."); pOnSuccess(); });
     lSS.start();
   },
@@ -1488,7 +1488,7 @@ var lTests =
 
     var lLoaded = [];
     var lSS = new InstrSeq();
-    lSS.push(function() { lMvStore.loadNativeJS("SELECT * WHERE EXISTS(\"http://localhost/mv/property/1.0/js_member/mCounter\");", function(__pE, __pR) { for (var __iR = 0; undefined != __pR && __iR < __pR.length; __iR++) lLoaded.push(__pR[__iR]); lSS.next(); }); });
+    lSS.push(function() { lAffinity.loadNativeJS("SELECT * WHERE EXISTS(\"http://localhost/afy/property/1.0/js_member/mCounter\");", function(__pE, __pR) { for (var __iR = 0; undefined != __pR && __iR < __pR.length; __iR++) lLoaded.push(__pR[__iR]); lSS.next(); }); });
     lSS.push(function() { console.log("*** obj0:\n" + JSON.stringify(lLoaded[0])); console.log("*** obj1:\n" + JSON.stringify(lLoaded[1])); lLoaded[0].doSomething("bla"); lSS.next(); });
     lSS.push(function() { console.log("done."); pOnSuccess(); });
     lSS.start();
@@ -1504,7 +1504,7 @@ var lOnExit =
   function()
   {
     console.log("Exiting.");
-    lMvStore.terminate();
+    lAffinity.terminate();
   };
 var lRunNextTest =
   function(pOnlyThisTest)
