@@ -54,7 +54,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
 
   // Protobuf config.
   var lAfyProtoSchema = new lib_protobuf.Schema(lib_fs.readFileSync('affinity.desc'));
-  var lAfyStream = lAfyProtoSchema['MVStorePB.MVStream'];
+  var lAfyStream = lAfyProtoSchema['AffinityPB.AfyStream'];
   var lTxCtx = null; // Represents the current txctx/long-http-request for this connection.
   var lNextCid = 1; // Next stmt id.
   var lKeepAlive = {on:(("keepalive" in pOptions) && pOptions.keepalive), client:null}
@@ -972,7 +972,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
   private_PINUpdate.prototype.getPID = function() { return this.mPINAccessor().mPID; }
   private_PINUpdate.prototype.getPIN = function() { return this.mPINAccessor().mPIN; }
 
-  // Protobuf: segment, i.e. js instance of a MVStorePB.MVStream segment (to be combined with PINUpdate-s).
+  // Protobuf: segment, i.e. js instance of a AffinityPB.AfyStream segment (to be combined with PINUpdate-s).
   function private_PBSegment() {}
 
   // Protobuf: dictionary of {propname:propid}.
@@ -1102,7 +1102,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
   {
     return ('VT_INT' == pType || 'VT_UINT' == pType || 'VT_INT64' == pType || 'VT_UINT64' == pType || 'VT_FLOAT' == pType || 'VT_DOUBLE' == pType || 'VT_DECIMAL' == pType);
   }
-  // Static helper to convert a single propval into its corresponding PB value (MVStorePB.Value).
+  // Static helper to convert a single propval into its corresponding PB value (AffinityPB.Value).
   private_sendPB.createPBValue = function(pPropDict, pKey, pValue, pExtra)
   {
     // TODO: Go over python/affinity.py::_valuePY2PB and make sure everything is coverered...
