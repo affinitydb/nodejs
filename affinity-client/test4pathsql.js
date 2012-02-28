@@ -1,8 +1,18 @@
-/**************************************************************************************
+/*
+Copyright (c) 2004-2012 VMware, Inc. All Rights Reserved.
 
-Copyright © 2004-2011 VMware, Inc. All rights reserved.
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
 
-**************************************************************************************/
+       http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,  WITHOUT
+WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+License for the specific language governing permissions and limitations
+under the License.
+*/
 
 // This file executes the pathSQL test suite (aka 'test4pathsql' aka *.sql).
 
@@ -99,7 +109,7 @@ function processSqlFile(pFileName, pFinalCallback, pMaxLineLen)
 
 // Processing of all .sql files.
 var lSS = new InstrSeq();
-var lSqlFiles = walkDir("../../tests_kernel/mvsql", ".sql");
+var lSqlFiles = walkDir("../../tests_kernel/pathsql", ".sql");
 //lSS.push(function() { var _lSS = new InstrSeq(); lSqlFiles.forEach(function(_pEl) { _lSS.push(function() { processSqlFile(_pEl.dirname + "/" + _pEl.filename, _lSS.next); }); }); _lSS.push(lSS.next); _lSS.start(); });
 lSS.push(function() { var _lF = lSqlFiles[4]; processSqlFile(_lF.dirname + "/" + _lF.filename, lSS.next); });
 lSS.push(function() { console.log("Done."); lAffinity.terminate(); });

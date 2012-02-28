@@ -1,8 +1,18 @@
-/**************************************************************************************
+/*
+Copyright (c) 2004-2012 VMware, Inc. All Rights Reserved.
 
-Copyright © 2004-2011 VMware, Inc. All rights reserved.
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
 
-**************************************************************************************/
+       http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,  WITHOUT
+WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+License for the specific language governing permissions and limitations
+under the License.
+*/
 
 // This test file contains a blend of basic tests/samples, meant
 // to verify and demonstrate basic Affinity functionality (in node.js).
@@ -834,7 +844,7 @@ var lTests =
         "SELECT * FROM \"http://localhost/afy/class/testphotos1/privilege\"(" + _lFirstTags.join(',') + ") AS p JOIN \"http://localhost/afy/class/testphotos1/user\" AS u ON (p.\"http://code.google.com/p/tagont/hasVisibility\" = u.\"http://xmlns.com/foaf/0.1/mbox\");",
         function(__pE, __pR)
         {
-          var __lUOINames = new Array(); if (__pR) { __pR.forEach(function(___pEl) { __lUOINames.push(___pEl["http://code.google.com/p/tagont/hasVisibility"]); }); }
+          var __lUOINames = new Array(); if (__pR) { __pR.forEach(function(___pEl) { __lUOINames.push(___pEl[0]["http://code.google.com/p/tagont/hasVisibility"]); }); }
           console.log("users that have one of " + _lFirstTags.join(',') + ": " + __lUOINames.join(','));
           _pOnSuccess(__pR);
         });
@@ -867,7 +877,7 @@ var lTests =
             function(__pE, __pR)
             {
               var __lExpectedTags = lInMemoryChk.getUserTags(_pUserName).sort();
-              __pR.forEach(function(___pEl){ _lTags[___pEl["http://code.google.com/p/tagont/hasTagLabel"]] = 1; });
+              __pR.forEach(function(___pEl){ _lTags[___pEl[0]["http://code.google.com/p/tagont/hasTagLabel"]] = 1; });
               var __lActualTags = Object.keys(_lTags).slice(0).sort();
               console.log("user " + _pUserName + " has tags " + __lActualTags.join(','));
               if (JSON.stringify(__lExpectedTags) != JSON.stringify(__lActualTags))
@@ -884,7 +894,7 @@ var lTests =
             "SELECT * FROM \"http://localhost/afy/class/testphotos1/photo\" AS p JOIN \"http://localhost/afy/class/testphotos1/tagging\" AS t ON (p.\"http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#hasHash\" = t.\"http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#hasHash\") WHERE t.\"http://code.google.com/p/tagont/hasTagLabel\" IN (" + __lTags.join(',') + ");",
             function(__pE, __pR)
             {
-              __pR.forEach(function(___pEl){ _lUniquePhotos[___pEl["http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#hasHash"]] = 1; });
+              __pR.forEach(function(___pEl){ _lUniquePhotos[___pEl[0]["http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#hasHash"]] = 1; });
               if (Object.keys(_lUniquePhotos).length != __pR.length)
                 console.log("non-unique: " + __pR.length + " unique: " + Object.keys(_lUniquePhotos).length);
               _lSS.next();
@@ -935,7 +945,7 @@ var lTests =
     var lTags = null, lUsersOfInterest = null;
     lSS.push(function() { lAffinity.q("SELECT * FROM \"http://localhost/afy/class/testphotos1/tag\";", function(_pE, _pR) { lTags = _pR.slice(0); lSS.next(); }); });
     lSS.push(function() { lGetUsersOfInterest(lTags, function(_pR){ lUsersOfInterest = _pR != null ? _pR.slice(0) : []; lSS.next(); }); });
-    lSS.push(function() { var _lSS = new InstrSeq(); lUsersOfInterest.forEach(function(_pEl){ _lSS.push(function(){ lCountUserPhotos(_pEl["http://code.google.com/p/tagont/hasVisibility"], _lSS.next); }); }); _lSS.push(lSS.next); _lSS.start(); });
+    lSS.push(function() { var _lSS = new InstrSeq(); lUsersOfInterest.forEach(function(_pEl){ _lSS.push(function(){ lCountUserPhotos(_pEl[0]["http://code.google.com/p/tagont/hasVisibility"], _lSS.next); }); }); _lSS.push(lSS.next); _lSS.start(); });
     lSS.push(function() { console.log("done."); pOnSuccess(); });
     lSS.start();
   },
