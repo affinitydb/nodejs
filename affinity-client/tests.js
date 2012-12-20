@@ -28,7 +28,7 @@ under the License.
 var lib_affinity = require('./lib/affinity-client');
 var lib_assert = require('assert');
 var lib_fs = require('fs');
-var lib_sys = require('sys');
+var lib_sys = null; try { lib_sys = require('sys'); } catch(e) { lib_sys = require('util'); }
 
 // Connect to the Affinity server.
 var lAffinity = lib_affinity.createConnection("http://nodetests:@localhost:4560/db/", {keepalive:false});

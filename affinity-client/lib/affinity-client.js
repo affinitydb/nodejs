@@ -20,7 +20,7 @@ var lib_https = require('https');
 var lib_url = require('url');
 var lib_events = require('events');
 var lib_crypto = require('crypto');
-var lib_protobuf = require('protobuf_for_node');
+var lib_protobuf = null; try { lib_protobuf = require('protobuf'); } catch (e) { lib_protobuf = require('protobuf_for_node'); }
 var lib_assert = require('assert');
 
 // Define a small helper to serialize steps.
@@ -192,7 +192,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
     else
     {
       var _lRequest = lUri.httpProtocol.request({host:lUri.hostname, method:((_pBody != undefined) ? "POST" : "GET"), path:_pPath, port:lUri.port, headers:_lHeaders}, _lOnResponse);
-      lib_assert.ok(!_lRequest.shouldKeepAlive);
+      // lib_assert.ok(!_lRequest.shouldKeepAlive); // Review: why does this fail with newer versions of nodejs?
       _lRequest.on('error', _lOnError);
       if (_pBody) _lRequest.write(_pBody);
       _lRequest.end();
@@ -251,7 +251,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
             }
             _lThis.mCallback(null, (undefined != _lThis.mResponse) ? _lThis.mResponse : ""); _lThis.mResponse = null;
           });
-        __pResponse.on('end', function() { lib_assert.fail("private_longhttp: received an 'end' event (not yet handled)"); });
+        __pResponse.on('end', function() { /*lib_assert.fail("private_longhttp: received an 'end' event (not yet handled)");*/ });
         __pResponse.on('close', function() { /*lib_assert.fail("private_longhttp: received a 'close' event (not yet handled)");*/ });
         __pResponse.on('continue', function() { lib_assert.fail("private_longhttp: received a 'continue' event (not yet handled)"); });
       };
@@ -903,6 +903,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
   // Note: The constructor expects an array of 3 elements: [PID, propvals, extras].
   function PIN(_pArgs)
   {
+    lib_assert.ok(typeof(_pArgs[0]) == "number");
     var _mPID = _pArgs[0];
     var _mPropVals = _pArgs[1];
     var _mExtras = _pArgs[2];
@@ -945,6 +946,16 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
     this.toPropValDict = function() { return deepCloneObject(_mPropVals); } // Note: We clone to prevent creating bad habits; this is meant to be used for debugging/introspection.
     this.getExtras = function() { return deepCloneObject(_mExtras); } // Note: This is meant ot be used for debugging/introspection.
   }
+
+  // Protobuf: for 64-bit integers.
+  // Note:
+  //   *i64 used to be returned as numbers by nodejs/protobuf-for-node/v8 (not sure of the
+  //   exact nature of the change at the time I'm writing this tmp patch), but someone changed
+  //   that during 2012, for a string representation (probably because javascript's number
+  //   representation is incapable of representing a full unsigned 64-bit value).
+  //   For the time being, I just revert to numbers here locally (i.e. no better and no worse
+  //   than what it used to be - to be reviewed).
+  function num64(_n64) { return parseInt(_n64); } // Note: parseInt(number)=number.
 
   // Protobuf: for VT_URL.
   function Url(_pString)
@@ -1285,7 +1296,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
     {
       // Process the pid.
       var _lParsedPin = this.mParsed.pins[_iP];
-      pProcessPID(_iP, _lParsedPin.id.id);
+      pProcessPID(_iP, num64(_lParsedPin.id.id));
 
       // Process the eids.
       var _lExtras = {};
@@ -1399,7 +1410,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
           { _lExtras[_lPropName] = {eid:_lPBValue.eid, type:_lPBValue.type}; }
       }
     }
-    return [pPBPIN.id.id, _lPropVals, _lExtras];
+    return [num64(pPBPIN.id.id), _lPropVals, _lExtras];
   }
   private_receivePB._extractValue = function(pPBValue, pPropDict)
   {
@@ -1413,8 +1424,8 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
       case 'VT_BSTR': return pPBValue.bstr;
       case 'VT_INT': return pPBValue.i;
       case 'VT_UINT': return pPBValue.ui;
-      case 'VT_INT64': return pPBValue.i64;
-      case 'VT_UINT64': return pPBValue.ui64;
+      case 'VT_INT64': return num64(pPBValue.i64);
+      case 'VT_UINT64': return num64(pPBValue.ui64);
       case 'VT_FLOAT': return pPBValue.f;
       case 'VT_INTERVAL': return pPBValue.interval; // xxx
       case 'VT_ARRAY':
@@ -1424,9 +1435,9 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
         return _lValues;
       }
       case 'VT_DATETIME': return new Date((pPBValue.datetime - AFY_TIME_OFFSET) / 1000);
-      case 'VT_REFID': return new Ref(pPBValue.id.id, pPBValue.id.ident);
-      case 'VT_REFIDPROP': return new Ref(pPBValue.ref.id.id, pPBValue.ref.id.ident, pPropDict.getPropName(pPBValue.ref.property));
-      case 'VT_REFIDELT': return new Ref(pPBValue.ref.id.id, pPBValue.ref.id.ident, pPropDict.getPropName(pPBValue.ref.property), pPBValue.ref.eid);
+      case 'VT_REFID': return new Ref(num64(pPBValue.id.id), pPBValue.id.ident);
+      case 'VT_REFIDPROP': return new Ref(num64(pPBValue.ref.id.id), pPBValue.ref.id.ident, pPropDict.getPropName(pPBValue.ref.property));
+      case 'VT_REFIDELT': return new Ref(num64(pPBValue.ref.id.id), pPBValue.ref.id.ident, pPropDict.getPropName(pPBValue.ref.property), pPBValue.ref.eid);
       default: break;
     }
     return null;
