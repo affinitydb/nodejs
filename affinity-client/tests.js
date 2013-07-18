@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2004-2012 VMware, Inc. All Rights Reserved.
+Copyright (c) 2004-2013 GoPivotal, Inc. All Rights Reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -410,6 +410,7 @@ var lTests =
             var _lSS = new InstrSeq();
             var _lPIN;
             _lSS.push(function() { lAffinity.qProto("INSERT (\"http://localhost/afy/property/test_types/value1\") VALUES (" + _pValueStr + ");", function(_pE, _pR) { assertValidResult(_pR); _lPIN = _pR[0]; _lSS.next() }); });
+            // alternative (different protobuf code path): _lSS.push(function() { lAffinity.createPINs([{"http://localhost/afy/property/test_types/value1":_pValueStr}], function(_pE, _pR) { assertValidResult(_pR); _lPIN = _pR[0]; _lSS.next() }); });
             _lSS.push(function() { _lPIN.set("http://localhost/afy/property/test_types/value2", _pValue, {txend:function(){_lSS.next();}}); });
             _lSS.push(function() { _lPIN.refresh(_lSS.next); });
             _lSS.push(
@@ -576,7 +577,7 @@ var lTests =
             _lSS.next();
           });
         var _lPINReferencing;
-        _lSS.push(function() { lAffinity.qProto("INSERT (\"http://localhost/afy/property/test_types/REFID/value1\", \"http://localhost/afy/property/test_types/REFIDPROP/value1\", \"http://localhost/afy/property/test_types/REFIDELT/value1\") VALUES (" + _lRefid.toString() + "," + _lRefidprop.toString() + "," + _lRefidelt.toString() + ");", function(_pE, _pR) { assertValidResult(_pR); _lPINReferencing = _pR[0]; _lSS.next() }); });
+        _lSS.push(function() { lAffinity.qProto("INSERT (\"http://localhost/afy/property/test_types/REFID/value1\", \"http://localhost/afy/property/test_types/REFIDPROP/value1\", \"http://localhost/afy/property/test_types/REFIDELT/value1\") VALUES (" + _lRefid.toString() + ", &" + _lRefidprop.toString() + ", &" + _lRefidelt.toString() + ");", function(_pE, _pR) { assertValidResult(_pR); _lPINReferencing = _pR[0]; _lSS.next() }); });
         _lSS.push(function() { _lPINReferencing.set("http://localhost/afy/property/test_types/REFID/value2", _lRefid, {txend:function(){_lSS.next();}}); });
         _lSS.push(function() { _lPINReferencing.set("http://localhost/afy/property/test_types/REFIDPROP/value2", _lRefidprop, {txend:function(){_lSS.next();}}); });
         _lSS.push(function() { _lPINReferencing.set("http://localhost/afy/property/test_types/REFIDELT/value2", _lRefidelt, {txend:function(){_lSS.next();}}); });
@@ -626,7 +627,7 @@ var lTests =
     lSS.push(function() { lAffinity.q("SET PREFIX myqnamep: 'http://localhost/afy/property/test_qnames/';", lSS.next); });
     var lClassesExist = false;
     var lOnSelectClasses = function(pError, pResponse) { console.log("substep " + lSS.curstep()); if (pError) console.log("\n*** ERROR: " + pError + "\n"); else { console.log("Result from step " + lSS.curstep() + ":" + JSON.stringify(pResponse)); lClassesExist = (pResponse && pResponse.length > 0); lSS.next(); } }
-    lSS.push(function() { lAffinity.q("SELECT * FROM afy:ClassOfClasses WHERE BEGINS(afy:classID, 'http://localhost/afy/class/test_qnames/');", lOnSelectClasses); });
+    lSS.push(function() { lAffinity.q("SELECT * FROM afy:Classes WHERE BEGINS(afy:objectID, 'http://localhost/afy/class/test_qnames/');", lOnSelectClasses); });
     lSS.push(function() { if (lClassesExist) lSS.next(); else lAffinity.q("CREATE CLASS myqnamec:pos AS SELECT * WHERE EXISTS(myqnamep:x) AND EXISTS(myqnamep:y);", lSS.simpleOnResponse); });
     lSS.push(function() { lAffinity.q("INSERT (myqnamep:x, myqnamep:y) VALUES (" + Math.random() + "," + Math.random() + ");", lSS.simpleOnResponse); });
     lSS.push(function() { lAffinity.qProto("SELECT * FROM myqnamec:pos;", function(_pE, _pR) { assertValidResult(_pR); for (var _iP = 0; _iP < _pR.length; _iP++) { console.log(JSON.stringify(_pR[_iP].toPropValDict())); } lSS.next(); }); });
@@ -911,7 +912,7 @@ var lTests =
     };
     var lClassesExist = false;
     var lOnSelectClasses = function(pError, pResponse) { console.log("substep " + lSS.curstep()); if (pError) console.log("\n*** ERROR: " + pError + "\n"); else { console.log("Result from step " + lSS.curstep() + ":" + JSON.stringify(pResponse)); lClassesExist = (pResponse && pResponse.length > 0); lSS.next(); } }
-    lSS.push(function() { console.log("Creating classes."); lAffinity.q("SELECT * FROM afy:ClassOfClasses WHERE BEGINS(afy:classID, 'http://localhost/afy/class/testphotos1/');", lOnSelectClasses); });
+    lSS.push(function() { console.log("Creating classes."); lAffinity.q("SELECT * FROM afy:Classes WHERE BEGINS(afy:objectID, 'http://localhost/afy/class/testphotos1/');", lOnSelectClasses); });
     lSS.push(function() { if (lClassesExist) lSS.next(); else lAffinity.q("CREATE CLASS \"http://localhost/afy/class/testphotos1/photo\" AS SELECT * WHERE \"http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#hasHash\" IN :0 AND EXISTS(\"http://www.w3.org/2001/XMLSchema#date\") AND EXISTS(\"http://www.w3.org/2001/XMLSchema#time\") AND EXISTS(\"http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#fileUrl\") AND EXISTS (\"http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#fileName\");", lSS.simpleOnResponse); });
     lSS.push(function() { if (lClassesExist) lSS.next(); else lAffinity.q("CREATE CLASS \"http://localhost/afy/class/testphotos1/tag\" AS SELECT * WHERE \"http://code.google.com/p/tagont/hasTagLabel\" in :0 AND NOT EXISTS(\"http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#hasHash\") AND NOT EXISTS(\"http://code.google.com/p/tagont/hasVisibility\");", lSS.simpleOnResponse); });
     lSS.push(function() { if (lClassesExist) lSS.next(); else lAffinity.q("CREATE CLASS \"http://localhost/afy/class/testphotos1/tagging\" AS SELECT * WHERE EXISTS(\"http://code.google.com/p/tagont/hasTagLabel\") AND \"http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#hasHash\" in :0;", lSS.simpleOnResponse); });
@@ -1019,7 +1020,7 @@ var lTests =
     // Declaration of classes.
     var lClassesExist = false;
     var lOnSelectClasses = function(pError, pResponse) { console.log("substep " + lSS.curstep()); if (pError) console.log("\n*** ERROR: " + pError + "\n"); else { console.log("Result from step " + lSS.curstep() + ":" + JSON.stringify(pResponse)); lClassesExist = (pResponse && pResponse.length > 0); lSS.next(); } }
-    lSS.push(function() { console.log("Creating classes."); lAffinity.q("SELECT * FROM afy:ClassOfClasses WHERE BEGINS(afy:classID, 'http://localhost/afy/class/benchgraph1/');", lOnSelectClasses); });
+    lSS.push(function() { console.log("Creating classes."); lAffinity.q("SELECT * FROM afy:Classes WHERE BEGINS(afy:objectID, 'http://localhost/afy/class/benchgraph1/');", lOnSelectClasses); });
     lSS.push(function() { if (lClassesExist) lSS.next(); else lAffinity.q("CREATE CLASS \"http://localhost/afy/class/benchgraph1/orgid\" AS SELECT * WHERE \"http://localhost/afy/property/benchgraph1/orgid\" IN :0;", lSS.simpleOnResponse); });
     lSS.push(function() { if (lClassesExist) lSS.next(); else lAffinity.q("CREATE CLASS \"http://localhost/afy/class/benchgraph1/fid\" AS SELECT * WHERE \"http://localhost/afy/property/benchgraph1/fid\" in :0;", lSS.simpleOnResponse); });
 

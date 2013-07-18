@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2004-2012 VMware, Inc. All Rights Reserved.
+Copyright (c) 2004-2013 GoPivotal, Inc. All Rights Reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -356,11 +356,13 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
   {
     console.log(new Error().stack);
   }
+  var SAVED_PB_IDX = 1;
   function dbg_savePBStr(_pMsgStr) // Similar to affinity.py.
   {
-    _lF = lib_fs.openSync("/tmp/myproto.bin", "w+");
+    _lF = lib_fs.openSync("/tmp/myproto.bin." + SAVED_PB_IDX, "w+");
     lib_fs.writeSync(_lF, _pMsgStr, 0, _pMsgStr.length, 0);
     lib_fs.close(_lF);
+    SAVED_PB_IDX += 1;
   }
 
   // Protobuf: transaction context (similar to affinity.py).
@@ -573,6 +575,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
   }
   private_TxCtx.prototype._pushData_impl = function(_pMsgSer)
   {
+    // dbg_savePBStr(_pMsgSer);
     if (undefined == this.mLongHttp)
     {
       var _lThis = this;
@@ -1029,6 +1032,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
       var __lParser = new private_PBResponseParser(__pR);
       pCallback(null, (pPINs[0] instanceof private_PINUpdate) ? __lParser.finalizeUpdates(pPINs) : __lParser.finalizeCreates(pPINs));
     }
+    // dbg_savePBStr(pMsgSer);
     return private_http(lUri.pathname + "?i=proto&o=proto", pMsgSer, _lOnPBResult);
   }
   // Static helper to serialize the descriptions/updates to a buffer in PB format, ready to be sent to Affinity.
@@ -1863,7 +1867,7 @@ module.exports.createConnection = function createConnection(pUrl, pOptions)
           function()
           {
             pathsql(
-              "SELECT * WHERE @ IN (@" + __pObj[PROP_JS_PROTOTYPE]["$ref"] + ",@" + __pObj[PROP_JS_CONSTRUCTOR]["$ref"] + ")",
+              "SELECT * WHERE afy:pinID IN (@" + __pObj[PROP_JS_PROTOTYPE]["$ref"] + ",@" + __pObj[PROP_JS_CONSTRUCTOR]["$ref"] + ")",
               function(___pE, ___pR)
               {
                 if (___pE) { _pCallback(___pE, null); return; }
